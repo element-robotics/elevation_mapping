@@ -21,7 +21,8 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <std_srvs/Empty.h>
 #include <std_srvs/Trigger.h>
-#include <tf/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 
 // Eigen
 #include <Eigen/Core>
@@ -298,8 +299,9 @@ class ElevationMapping {
   //! Cache for the robot pose messages.
   message_filters::Cache<geometry_msgs::PoseWithCovarianceStamped> robotPoseCache_;
 
-  //! TF listener and broadcaster.
-  tf::TransformListener transformListener_;
+  //! TF listener and buffer.
+  tf2_ros::Buffer transformBuffer_;
+  tf2_ros::TransformListener transformListener_;
 
   struct Parameters {
     //! Size of the cache for the robot pose messages.
