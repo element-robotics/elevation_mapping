@@ -10,7 +10,7 @@
 
 namespace elevation_mapping {
 
-PostprocessorPool::PostprocessorPool(std::size_t poolSize, ros::NodeHandle nodeHandle) {
+PostprocessorPool::PostprocessorPool(std::size_t poolSize, rclcpp::Node nodeHandle) {
   for (std::size_t i = 0; i < poolSize; ++i) {
     // Add worker to the collection.
     workers_.emplace_back(std::make_unique<PostprocessingWorker>(nodeHandle));
@@ -40,7 +40,7 @@ bool PostprocessorPool::runTask(const GridMap& gridMap) {
   // Get an available service id from the shared services pool in a mutually exclusive manner.
   size_t serviceIndex{0};
   {
-    boost::lock_guard<boost::mutex> lock(availableServicesMutex_);
+    boost::lock_guard<std::mutex> lock(availableServicesMutex_);
     if (availableServices_.empty()) {
       return false;
     }
@@ -69,7 +69,7 @@ void PostprocessorPool::wrapTask(size_t serviceIndex) {
   }
 
   // Task has finished, so increment count of available threads.
-  boost::unique_lock<boost::mutex> lock(availableServicesMutex_);
+  boost::unique_lock<std::mutex> lock(availableServicesMutex_);
   availableServices_.push_back(serviceIndex);
 }
 

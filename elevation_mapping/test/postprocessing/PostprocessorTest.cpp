@@ -5,7 +5,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <ros/ros.h>
+#include "rclcpp/rclcpp.hpp"
 
 #include "elevation_mapping/postprocessing/PostprocessingPipelineFunctor.hpp"
 #include "elevation_mapping/postprocessing/PostprocessorPool.hpp"
@@ -26,7 +26,7 @@ class RosFixture : public ::testing::Test {
  public:
   static void checkAcceptedTasks(uint poolSize, uint timeBetweenConsecutiveTasks, std::vector<bool> expectedAcceptanceOutcomes) {
     // Set up ROS node handle.
-    ros::NodeHandle nodeHandle("~");
+    rclcpp::Node nodeHandle("~");
 
     elevation_mapping::PostprocessorPool pool{poolSize, nodeHandle};
     int taskNumber = 0;

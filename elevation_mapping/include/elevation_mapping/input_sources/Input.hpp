@@ -9,7 +9,7 @@
 #pragma once
 
 #include <XmlRpc.h>
-#include <ros/ros.h>
+#include "rclcpp/rclcpp.hpp"
 #include <string>
 
 #include "elevation_mapping/ThreadSafeDataWrapper.hpp"
@@ -25,14 +25,14 @@ class ElevationMapping;  // Forward declare to avoid cyclic import dependency.
 class Input {
  public:
   template <typename MsgT>
-  using CallbackT = void (ElevationMapping::*)(const boost::shared_ptr<const MsgT>&, bool, const SensorProcessorBase::Ptr&);
+  using CallbackT = void (ElevationMapping::*)(const std::shared_ptr<const MsgT>&, bool, const SensorProcessorBase::Ptr&);
 
   /**
    * @brief Constructor.
    * @param nh Reference to the nodeHandle of the manager. Used to subscribe
    * to inputs.
    */
-  explicit Input(ros::NodeHandle nh);
+  explicit Input(rclcpp::Node nh);
 
   /**
    * Whether the input source is enabled or not.
@@ -89,7 +89,7 @@ class Input {
 
   // ROS connection.
   ros::Subscriber subscriber_;
-  ros::NodeHandle nodeHandle_;
+  rclcpp::Node nodeHandle_;
 
   //! Sensor processor
   SensorProcessorBase::Ptr sensorProcessor_;
@@ -112,7 +112,7 @@ void Input::registerCallback(ElevationMapping& map, CallbackT<MsgT> callback) {
   subscriber_ = nodeHandle_.subscribe<MsgT>(
       parameters.topic_, parameters.queueSize_,
       std::bind(callback, std::ref(map), std::placeholders::_1, parameters.publishOnUpdate_, std::ref(sensorProcessor_)));
-  ROS_INFO("Subscribing to %s: %s, queue_size: %i.", parameters.type_.c_str(), parameters.topic_.c_str(), parameters.queueSize_);
+  RCLCPP_INFO(rclcpp::get_logger("ElevationMapping"), "Subscribing to %s: %s, queue_size: %i.", parameters.type_.c_str(), parameters.topic_.c_str(), parameters.queueSize_);
 }
 
 }  // namespace elevation_mapping

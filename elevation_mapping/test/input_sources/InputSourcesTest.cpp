@@ -8,16 +8,16 @@
 
 #include "elevation_mapping/ElevationMapping.hpp"
 
-#include <ros/ros.h>
+#include "rclcpp/rclcpp.hpp"
 
 #include <gtest/gtest.h>
 
 static void assertSuccessAndNumberOfSources(const std::string& inputConfiguration, bool successExpected,
                                             uint32_t numberOfExpectedInputSources) {
-  elevation_mapping::InputSourceManager inputSourceManager(ros::NodeHandle("~"));
+  elevation_mapping::InputSourceManager inputSourceManager(rclcpp::Node("~"));
   bool success = inputSourceManager.configureFromRos(inputConfiguration);
   ASSERT_EQ(success, successExpected) << "Configuration was:\n"
-                                      << ros::NodeHandle("~").param<XmlRpc::XmlRpcValue>(inputConfiguration, "not set").toXml() << "\n";
+                                      << rclcpp::Node("~").param<XmlRpc::XmlRpcValue>(inputConfiguration, "not set").toXml() << "\n";
   ASSERT_EQ(inputSourceManager.getNumberOfSources(), numberOfExpectedInputSources);
 }
 
@@ -74,7 +74,7 @@ TEST(InputSources, ConfigurationQueueSizeIsNegative) {  // NOLINT
 }
 
 TEST(InputSources, UnknownType) {  // NOLINT
-  ros::NodeHandle nodeHandle("~");
+  rclcpp::Node nodeHandle("~");
   elevation_mapping::InputSourceManager inputSourceManager(nodeHandle);
   inputSourceManager.configureFromRos("unknown_type");
 
@@ -87,29 +87,29 @@ TEST(InputSources, UnknownType) {  // NOLINT
 }
 
 TEST(ElevationMap, Constructor) {  // NOLINT
-  ros::NodeHandle nodeHandle("~");
+  rclcpp::Node nodeHandle("~");
   elevation_mapping::ElevationMapping map(nodeHandle);
 }
 
 TEST(InputSources, ListeningToTopicsAfterRegistration) {  // NOLINT
   // subscribe to the default parameter "input_sources"
-  ros::NodeHandle nodeHandle("~");
+  rclcpp::Node nodeHandle("~");
   class ElevationMappingWithInputSourcesAccessor : public elevation_mapping::ElevationMapping {
    public:
-    explicit ElevationMappingWithInputSourcesAccessor(ros::NodeHandle nodeHandle) : elevation_mapping::ElevationMapping(nodeHandle) {}
+    explicit ElevationMappingWithInputSourcesAccessor(rclcpp::Node nodeHandle) : elevation_mapping::ElevationMapping(nodeHandle) {}
     ~ElevationMappingWithInputSourcesAccessor() override = default;
     int getNumberOfSources() { return inputSources_.getNumberOfSources(); }
   } map{nodeHandle};
 
   // Wait a bit.
-  ros::spinOnce();
-  ros::Duration(1.0).sleep();
-  ros::spinOnce();
+  rclcpp::spin_some(node);
+  rclcpp::Duration(1.0).sleep();
+  rclcpp::spin_some(node);
 
   // Publish to the topics we expect map to subscribe.
-  ros::NodeHandle nh("");
-  ros::Publisher firstLidarPublisher = nh.advertise<sensor_msgs::PointCloud2>("/lidar_1/depth/points", 1, false);
-  ros::Publisher secondLidarPublisher = nh.advertise<sensor_msgs::PointCloud2>("/lidar_2/depth/points", 1, false);
+  rclcpp::Node nh("");
+  auto firstLidarPublisher = nh.advertise<sensor_msgs::msg::PointCloud2>("/lidar_1/depth/points", 1, false);
+  auto secondLidarPublisher = nh.advertise<sensor_msgs::msg::PointCloud2>("/lidar_2/depth/points", 1, false);
 
   // Check if we have exactly one subscriber per topic.
   ASSERT_EQ(firstLidarPublisher.getNumSubscribers(), 1);

@@ -9,7 +9,7 @@
 #include "elevation_mapping/sensor_processors/SensorProcessorBase.hpp"
 
 // ROS
-#include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 
 // PCL
 #include <pcl/common/io.h>
@@ -31,14 +31,14 @@
 
 namespace elevation_mapping {
 
-SensorProcessorBase::SensorProcessorBase(ros::NodeHandle& nodeHandle, const GeneralParameters& generalConfig)
+SensorProcessorBase::SensorProcessorBase(rclcpp::Node& nodeHandle, const GeneralParameters& generalConfig)
     : nodeHandle_(nodeHandle),
       transformListener_(transformBuffer_),
       firstTfAvailable_(false) {
   pcl::console::setVerbosityLevel(pcl::console::L_ERROR);
   transformationSensorToMap_.setIdentity();
   generalParameters_ = generalConfig;
-  ROS_DEBUG(
+  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), 
       "Sensor processor general parameters are:"
       "\n\t- robot_base_frame_id: %s"
       "\n\t- map_frame_id: %s",
@@ -64,10 +64,10 @@ bool SensorProcessorBase::process(const PointCloudType::ConstPtr pointCloudInput
                                   const PointCloudType::Ptr pointCloudMapFrame, Eigen::VectorXf& variances, std::string sensorFrame) {
   const Parameters parameters{parameters_.getData()};
   sensorFrameId_ = sensorFrame;
-  ROS_DEBUG("Sensor Processor processing for frame %s", sensorFrameId_.c_str());
+  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "Sensor Processor processing for frame %s", sensorFrameId_.c_str());
 
   // Update transformation at timestamp of pointcloud
-  ros::Time timeStamp;
+  rclcpp::Time timeStamp;
   timeStamp.fromNSec(1000 * pointCloudInput->header.stamp);
   if (!updateTransformations(timeStamp)) {
     return false;
@@ -94,16 +94,16 @@ bool SensorProcessorBase::process(const PointCloudType::ConstPtr pointCloudInput
   return computeVariances(pointCloudSensorFrame, robotPoseCovariance, variances);
 }
 
-bool SensorProcessorBase::updateTransformations(const ros::Time& timeStamp) {
+bool SensorProcessorBase::updateTransformations(const rclcpp::Time& timeStamp) {
   const Parameters parameters{parameters_.getData()};
   try {
 
-    geometry_msgs::TransformStamped transformGeom;
-    transformGeom = transformBuffer_.lookupTransform(generalParameters_.mapFrameId_, sensorFrameId_, timeStamp, ros::Duration(1.0));
+    geometry_msgs::msg::TransformStamped transformGeom;
+    transformGeom = transformBuffer_.lookupTransform(generalParameters_.mapFrameId_, sensorFrameId_, timeStamp, rclcpp::Duration(1.0));
     transformationSensorToMap_ = tf2::transformToEigen(transformGeom);
 
     transformGeom = transformBuffer_.lookupTransform(generalParameters_.robotBaseFrameId_, sensorFrameId_, timeStamp,
-                                                      ros::Duration(1.0));  // TODO(max): Why wrong direction?
+                                                      rclcpp::Duration(1.0));  // TODO(max): Why wrong direction?
     Eigen::Quaterniond rotationQuaternion;
     tf2::fromMsg(transformGeom.transform.rotation, rotationQuaternion);
     rotationBaseToSensor_.setMatrix(rotationQuaternion.toRotationMatrix());
@@ -112,7 +112,7 @@ bool SensorProcessorBase::updateTransformations(const ros::Time& timeStamp) {
     translationBaseToSensorInBaseFrame_.toImplementation() = translationVector;
 
     transformGeom = transformBuffer_.lookupTransform(generalParameters_.mapFrameId_, generalParameters_.robotBaseFrameId_,
-                                                    timeStamp, ros::Duration(1.0));  // TODO(max): Why wrong direction?
+                                                    timeStamp, rclcpp::Duration(1.0));  // TODO(max): Why wrong direction?
     tf2::fromMsg(transformGeom.transform.rotation, rotationQuaternion);
     rotationMapToBase_.setMatrix(rotationQuaternion.toRotationMatrix());
     tf2::fromMsg(transformGeom.transform.translation, translationVector);
@@ -127,20 +127,20 @@ bool SensorProcessorBase::updateTransformations(const ros::Time& timeStamp) {
     if (!firstTfAvailable_) {
       return false;
     }
-    ROS_ERROR("%s", ex.what());
+    RCLCPP_ERROR(rclcpp::get_logger("ElevationMapping"), "%s", ex.what());
     return false;
   }
 }
 
 bool SensorProcessorBase::transformPointCloud(PointCloudType::ConstPtr pointCloud, PointCloudType::Ptr pointCloudTransformed,
                                               const std::string& targetFrame) {
-  ros::Time timeStamp;
+  rclcpp::Time timeStamp;
   timeStamp.fromNSec(1000 * pointCloud->header.stamp);
   const std::string inputFrameId(pointCloud->header.frame_id);
 
   try {
-    geometry_msgs::TransformStamped transformGeom;
-    transformGeom = transformBuffer_.lookupTransform(targetFrame, inputFrameId, timeStamp, ros::Duration(1.0));  // FIXME: missing 0.001 retry duration
+    geometry_msgs::msg::TransformStamped transformGeom;
+    transformGeom = transformBuffer_.lookupTransform(targetFrame, inputFrameId, timeStamp, rclcpp::Duration(1.0));  // FIXME: missing 0.001 retry duration
     Eigen::Affine3d transform = tf2::transformToEigen(transformGeom);
     pcl::transformPointCloud(*pointCloud, *pointCloudTransformed, transform.cast<float>());
     pointCloudTransformed->header.frame_id = targetFrame;
@@ -148,7 +148,7 @@ bool SensorProcessorBase::transformPointCloud(PointCloudType::ConstPtr pointClou
     ROS_DEBUG_THROTTLE(5, "Point cloud transformed to frame %s for time stamp %f.", targetFrame.c_str(),
                       pointCloudTransformed->header.stamp / 1000.0);
   } catch (tf2::TransformException& ex) {
-    ROS_ERROR("%s", ex.what());
+    RCLCPP_ERROR(rclcpp::get_logger("ElevationMapping"), "%s", ex.what());
     return false;
   }
 
@@ -160,7 +160,7 @@ void SensorProcessorBase::removePointsOutsideLimits(PointCloudType::ConstPtr ref
   if (!std::isfinite(parameters.ignorePointsLowerThreshold_) && !std::isfinite(parameters.ignorePointsUpperThreshold_)) {
     return;
   }
-  ROS_DEBUG("Limiting point cloud to the height interval of [%f, %f] relative to the robot base.", parameters.ignorePointsLowerThreshold_,
+  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "Limiting point cloud to the height interval of [%f, %f] relative to the robot base.", parameters.ignorePointsLowerThreshold_,
             parameters.ignorePointsUpperThreshold_);
 
   pcl::PassThrough<pcl::PointXYZRGBConfidenceRatio> passThroughFilter(true);
@@ -181,7 +181,7 @@ void SensorProcessorBase::removePointsOutsideLimits(PointCloudType::ConstPtr ref
     pointCloud->swap(tempPointCloud);
   }
 
-  ROS_DEBUG("removePointsOutsideLimits() reduced point cloud to %i points.", (int)pointClouds[0]->size());
+  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "removePointsOutsideLimits() reduced point cloud to %i points.", (int)pointClouds[0]->size());
 }
 
 bool SensorProcessorBase::filterPointCloud(const PointCloudType::Ptr pointCloud) {

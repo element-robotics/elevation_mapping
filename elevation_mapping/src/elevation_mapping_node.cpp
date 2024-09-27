@@ -6,12 +6,13 @@
  *   Institute: ETH Zurich, ANYbotics
  */
 
-#include <ros/ros.h>
+#include "rclcpp/rclcpp.hpp"
 #include "elevation_mapping/ElevationMapping.hpp"
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "elevation_mapping");
-  ros::NodeHandle nodeHandle("~");
+  rclcpp::init(argc, argv);
+  auto node = rclcpp::Node::make_shared("elevation_mapping");
+  rclcpp::Node nodeHandle("~");
   elevation_mapping::ElevationMapping elevationMap(nodeHandle);
 
   // Spin

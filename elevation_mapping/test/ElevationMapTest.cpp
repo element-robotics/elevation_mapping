@@ -9,7 +9,7 @@
 #include "elevation_mapping/ElevationMap.hpp"
 #include "grid_map_core/GridMap.hpp"
 
-#include <ros/ros.h>
+#include "rclcpp/rclcpp.hpp"
 
 // gtest
 #include <gtest/gtest.h>
@@ -17,7 +17,7 @@
 TEST(ElevationMap, Test) {  // NOLINT
   //  ros::M_string remappings;
   //  ros::init(remappings, "test_elevation_mapping");
-  //  ros::NodeHandle nodeHandle("~");
+  //  rclcpp::Node nodeHandle("~");
   //  ElevationMap map(nodeHandle);
   // map.setGeometry(Length(1.0, 1.0), 0.01, Position(0.0, 0.0));
 }

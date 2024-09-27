@@ -1,8 +1,18 @@
 cmake_minimum_required(VERSION 3.5.1)
 project(elevation_mapping)
+find_package(ament_cmake REQUIRED)
+find_package(${CATKIN_PACKAGE_DEPENDENCIES} REQUIRED)
+
+find_package(Boost REQUIRED COMPONENTS system)
+find_package(Eigen3 REQUIRED)
+
+###########
+## Clang ##
+###########
+
+find_package(cmake_clang_tools QUIET)
 
 set(CMAKE_CXX_STANDARD 17)
-add_compile_options(-Wall -Wextra -Wpedantic)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -26,26 +36,6 @@ set(
     tf2_geometry_msgs
 )
 
-find_package(catkin REQUIRED
-  COMPONENTS
-    ${CATKIN_PACKAGE_DEPENDENCIES}
-)
-
-find_package(Boost REQUIRED COMPONENTS system)
-find_package(Eigen3 REQUIRED)
-
-catkin_package(
-  INCLUDE_DIRS
-    include
-    ${Eigen_INCLUDE_DIRS}
-  LIBRARIES
-    ${PROJECT_NAME}_library
-  CATKIN_DEPENDS
-    ${CATKIN_PACKAGE_DEPENDENCIES}
-  DEPENDS
-    Boost
-)
-
 include_directories(
   include
   SYSTEM
@@ -61,9 +51,6 @@ include_directories(
 # Our custom pcl type with precompiled template instantiations.
 add_library(${PROJECT_NAME}_pcl_types
   src/PointXYZRGBConfidenceRatio.cpp
-)
-target_link_libraries(${PROJECT_NAME}_pcl_types
-  ${catkin_LIBRARIES}
 )
 
 add_library(${PROJECT_NAME}_library
@@ -82,16 +69,6 @@ add_library(${PROJECT_NAME}_library
   src/sensor_processors/PerfectSensorProcessor.cpp
 )
 
-add_dependencies(${PROJECT_NAME}_library
-  ${PROJECT_NAME}_pcl_types
-)
-
-target_link_libraries(${PROJECT_NAME}_library
-  ${catkin_LIBRARIES}
-  ${PROJECT_NAME}_pcl_types
-  pthread
-)
-
 ##############
 # Executable #
 ##############
@@ -99,14 +76,49 @@ target_link_libraries(${PROJECT_NAME}_library
 add_executable(${PROJECT_NAME}
   src/elevation_mapping_node.cpp
 )
-
-add_dependencies(${PROJECT_NAME}
-  ${PROJECT_NAME}_library
+ament_target_dependencies(${PROJECT_NAME}_pcl_types
+  "geometry_msgs"
+  "grid_map_ros"
+  "std_srvs"
+  "message_filters"
+  "grid_map_msgs"
+  "tf2_ros"
+  "filters"
+  "tf2"
+  "tf2_geometry_msgs"
+  "tf2_eigen"
+  "sensor_msgs"
+  "grid_map_core"
+  "rclcpp"
+  "pcl_conversions"
 )
 
-target_link_libraries(${PROJECT_NAME}
+ament_target_dependencies(${PROJECT_NAME}_library
+  ${PROJECT_NAME}_pcl_types
+  pthread
+  "geometry_msgs"
+  "grid_map_ros"
+  "std_srvs"
+  "message_filters"
+  "grid_map_msgs"
+  "tf2_ros"
+  "filters"
+  "tf2"
+  "tf2_geometry_msgs"
+  "tf2_eigen"
+  "sensor_msgs"
+  "grid_map_core"
+  "rclcpp"
+  "pcl_conversions"
+)
+
+ament_target_dependencies(${PROJECT_NAME}
   ${PROJECT_NAME}_library
 )
+ament_export_include_directories(include ${Eigen_INCLUDE_DIRS})
+ament_export_libraries(${PROJECT_NAME}_library)
+ament_export_dependencies(${CATKIN_PACKAGE_DEPENDENCIES})
+ament_package()
 
 #############
 ## Install ##
@@ -118,32 +130,35 @@ install(
     ${PROJECT_NAME}_pcl_types
     ${PROJECT_NAME}_library
   ARCHIVE DESTINATION
-    ${CATKIN_PACKAGE_LIB_DESTINATION}
+    lib
   LIBRARY DESTINATION
-    ${CATKIN_PACKAGE_LIB_DESTINATION}
+    lib
   RUNTIME DESTINATION
-    ${CATKIN_PACKAGE_BIN_DESTINATION}
+    lib/${PROJECT_NAME}
 )
 
 install(
   DIRECTORY 
     include/${PROJECT_NAME}/
   DESTINATION 
-    ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+    include/${PROJECT_NAME}
 )
 
 install(
   DIRECTORY 
     config
   DESTINATION 
-    ${CATKIN_PACKAGE_SHARE_DESTINATION}
+    share/${PROJECT_NAME}
 )
+if(cmake_clang_tools_FOUND)
+  add_default_clang_tooling()
+endif(cmake_clang_tools_FOUND)
 
 ##########
 ## Test ##
 ##########
 
-if(CATKIN_ENABLE_TESTING)
+if(BUILD_TESTING)
   find_package(catkin REQUIRED
     COMPONENTS
       ${CATKIN_PACKAGE_DEPENDENCIES}
@@ -152,32 +167,12 @@ if(CATKIN_ENABLE_TESTING)
       rostest
   )
 
-  # Cummulative distribution
-  catkin_add_gtest(test_${PROJECT_NAME}_cumulative_distribution
-    test/ElevationMapTest.cpp
-    test/test_elevation_mapping.cpp
-    test/WeightedEmpiricalCumulativeDistributionFunctionTest.cpp
-  )
+  find_package(cmake_code_coverage QUIET)
   add_dependencies(test_${PROJECT_NAME}_cumulative_distribution
     ${PROJECT_NAME}_library
   )
   target_link_libraries(test_${PROJECT_NAME}_cumulative_distribution
     ${PROJECT_NAME}_library
-  )
-  target_include_directories(test_${PROJECT_NAME}_cumulative_distribution
-    PRIVATE
-      include
-  )
-  target_include_directories(test_${PROJECT_NAME}_cumulative_distribution
-    SYSTEM PUBLIC
-      ${catkin_INCLUDE_DIRS}
-  )
-
-  # Input sources
-  add_rostest_gtest(test_${PROJECT_NAME}_input_sources
-    test/input_sources/input_sources.test
-    test/input_sources/test_input_sources.cpp
-    test/input_sources/InputSourcesTest.cpp
   )
   add_dependencies(test_${PROJECT_NAME}_input_sources
     ${PROJECT_NAME}_library
@@ -185,40 +180,13 @@ if(CATKIN_ENABLE_TESTING)
   target_link_libraries(test_${PROJECT_NAME}_input_sources
     ${PROJECT_NAME}_library
   )
-  target_include_directories(test_${PROJECT_NAME}_input_sources
-    PRIVATE
-      include
-  )
-  target_include_directories(test_${PROJECT_NAME}_input_sources SYSTEM PUBLIC
-    ${Boost_INCLUDE_DIRS}
-    ${catkin_INCLUDE_DIRS}
-    ${Eigen_INCLUDE_DIRS}
-  )
-
-  # Postprocessor
-  add_rostest_gtest(test_${PROJECT_NAME}_postprocessor
-    test/postprocessing/postprocessor.test
-    test/postprocessing/main.cpp
-    test/postprocessing/PostprocessorTest.cpp
-  )
   add_dependencies(test_${PROJECT_NAME}_postprocessor
     ${PROJECT_NAME}_library
-  )
-  target_include_directories(test_${PROJECT_NAME}_postprocessor PRIVATE
-    include
-  )
-  target_include_directories(test_${PROJECT_NAME}_postprocessor SYSTEM PUBLIC
-    ${catkin_INCLUDE_DIRS}
   )
   target_link_libraries(test_${PROJECT_NAME}_postprocessor
     ${GTEST_LIBRARIES}
     ${PROJECT_NAME}_library
     ${catkin_LIBRARIES}
-  )
-
-  # Thread safe parameter wrapper test
-  catkin_add_gtest(test_${PROJECT_NAME}_thread_safe_parameter_wrapper
-    test/ThreadSafeParameterWrapperTest.cpp
   )
   add_dependencies(test_${PROJECT_NAME}_thread_safe_parameter_wrapper
     ${PROJECT_NAME}_library
@@ -228,16 +196,20 @@ if(CATKIN_ENABLE_TESTING)
     ${catkin_LIBRARIES}
     gtest_main
   )
-  target_include_directories(test_${PROJECT_NAME}_thread_safe_parameter_wrapper
-    PRIVATE
-    include
-  )
-  target_include_directories(test_${PROJECT_NAME}_thread_safe_parameter_wrapper
-    SYSTEM PUBLIC
-    ${catkin_INCLUDE_DIRS}
+
+  # Input sources
+  add_rostest_gtest(test_${PROJECT_NAME}_input_sources
+    test/input_sources/input_sources.test
+    test/input_sources/test_input_sources.cpp
+    test/input_sources/InputSourcesTest.cpp
   )
 
-  find_package(cmake_code_coverage QUIET)
+  # Postprocessor
+  add_rostest_gtest(test_${PROJECT_NAME}_postprocessor
+    test/postprocessing/postprocessor.test
+    test/postprocessing/main.cpp
+    test/postprocessing/PostprocessorTest.cpp
+  )
   if(cmake_code_coverage_FOUND)
       add_gtest_coverage(TEST_BUILD_TARGETS
         test_${PROJECT_NAME}_cumulative_distribution
@@ -252,13 +224,50 @@ if(CATKIN_ENABLE_TESTING)
         test_${PROJECT_NAME}_thread_safe_parameter_wrapper
       )
   endif()
+
+  # Cummulative distribution
+  ament_add_gtest(test_${PROJECT_NAME}_cumulative_distribution
+    test/ElevationMapTest.cpp
+    test/test_elevation_mapping.cpp
+    test/WeightedEmpiricalCumulativeDistributionFunctionTest.cpp
+  
+)
+  target_include_directories(test_${PROJECT_NAME}_cumulative_distribution
+    PRIVATE
+      include
+  )
+  target_include_directories(test_${PROJECT_NAME}_cumulative_distribution
+    SYSTEM PUBLIC
+      ${catkin_INCLUDE_DIRS}
+  )
+  target_include_directories(test_${PROJECT_NAME}_input_sources
+    PRIVATE
+      include
+  )
+  target_include_directories(test_${PROJECT_NAME}_input_sources SYSTEM PUBLIC
+    ${Boost_INCLUDE_DIRS}
+    ${catkin_INCLUDE_DIRS}
+    ${Eigen_INCLUDE_DIRS}
+  )
+  target_include_directories(test_${PROJECT_NAME}_postprocessor PRIVATE
+    include
+  )
+  target_include_directories(test_${PROJECT_NAME}_postprocessor SYSTEM PUBLIC
+    ${catkin_INCLUDE_DIRS}
+  )
+
+  # Thread safe parameter wrapper test
+  ament_add_gtest(test_${PROJECT_NAME}_thread_safe_parameter_wrapper
+    test/ThreadSafeParameterWrapperTest.cpp
+  
+)
+  target_include_directories(test_${PROJECT_NAME}_thread_safe_parameter_wrapper
+    PRIVATE
+    include
+  )
+  target_include_directories(test_${PROJECT_NAME}_thread_safe_parameter_wrapper
+    SYSTEM PUBLIC
+    ${catkin_INCLUDE_DIRS}
+  )
 endif()
-
-###########
-## Clang ##
-###########
-
-find_package(cmake_clang_tools QUIET)
-if(cmake_clang_tools_FOUND)
-  add_default_clang_tooling()
-endif(cmake_clang_tools_FOUND)
+add_compile_options(-Wall -Wextra -Wpedantic)

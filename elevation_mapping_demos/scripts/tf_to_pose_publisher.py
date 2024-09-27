@@ -38,7 +38,8 @@ def main_program():
     """ Main function initializes node and subscribers and starts
         the ROS loop. """
     global publisher, tf_buffer, tf_listener, from_frame, to_frame
-    rospy.init_node('tf_to_pose_publisher')
+    rclpy.init()
+    node = rclpy.create_node('tf_to_pose_publisher')
     # Read frame id's for tf listener
     from_frame = rospy.get_param("~from_frame")
     to_frame = rospy.get_param("~to_frame")
@@ -46,8 +47,8 @@ def main_program():
 
     tf_buffer = tf2_ros.Buffer()
     tf_listener = tf2_ros.TransformListener(tf_buffer)
-    publisher = rospy.Publisher(
-        pose_name, geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=10)
+    publisher = node.create_publisher(geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=10, 
+        pose_name)
 
     # Set callback and start spinning
     rospy.Timer(rospy.Duration(0.05), callback)
