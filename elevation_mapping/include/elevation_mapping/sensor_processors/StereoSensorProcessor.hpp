@@ -25,9 +25,9 @@ class StereoSensorProcessor : public SensorProcessorBase {
  public:
   /*!
    * Constructor.
-   * @param nodeHandle the ROS node handle.
+   * @param node the ROS node handle.
    */
-  StereoSensorProcessor(rclcpp::Node& nodeHandle, const SensorProcessorBase::GeneralParameters& generalParameters);
+  StereoSensorProcessor(rclcpp::Node::SharedPtr node, const SensorProcessorBase::GeneralParameters& generalParameters);
 
   /*!
    * Destructor.

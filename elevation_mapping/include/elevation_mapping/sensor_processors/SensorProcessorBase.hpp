@@ -54,10 +54,10 @@ class SensorProcessorBase {
 
   /*!
    * Constructor.
-   * @param nodeHandle the ROS node handle.
+   * @param node the ROS node handle.
    * @param generalConfig General parameters that the sensor processor must know in order to work. // TODO (magnus) improve documentation.
    */
-  SensorProcessorBase(rclcpp::Node& nodeHandle, const GeneralParameters& generalConfig);
+  SensorProcessorBase(rclcpp::Node::SharedPtr node, const GeneralParameters& generalConfig);
 
   /*!
    * Destructor.
@@ -137,8 +137,8 @@ class SensorProcessorBase {
    */
   void removePointsOutsideLimits(PointCloudType::ConstPtr reference, std::vector<PointCloudType::Ptr>& pointClouds);
 
-  //! ROS nodehandle.
-  rclcpp::Node& nodeHandle_;
+  //! ROS node.
+  rclcpp::Node::SharedPtr node_;
 
   //! TF transform listener and buffer.
   tf2_ros::Buffer transformBuffer_;

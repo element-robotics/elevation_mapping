@@ -36,7 +36,7 @@ class RobotMotionMapUpdater {
   /*!
    * Constructor.
    */
-  explicit RobotMotionMapUpdater(rclcpp::Node nodeHandle);
+  explicit RobotMotionMapUpdater(rclcpp::Node::SharedPtr node);
 
   /*!
    * Destructor.
@@ -80,8 +80,8 @@ class RobotMotionMapUpdater {
    */
   bool computeRelativeCovariance(const Pose& robotPose, const ReducedCovariance& reducedCovariance, ReducedCovariance& relativeCovariance);
 
-  //! ROS nodehandle.
-  rclcpp::Node nodeHandle_;
+  //! ROS node.
+  rclcpp::Node::SharedPtr node_;
 
   //! Time of the previous update.
   rclcpp::Time previousUpdateTime_;

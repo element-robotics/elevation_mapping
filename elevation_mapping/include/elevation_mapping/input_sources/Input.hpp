@@ -8,6 +8,7 @@
 
 #pragma once
 
+// TODO: convert to use DDS settings instead of ROS1 XmlRpcValue
 #include <XmlRpc.h>
 #include "rclcpp/rclcpp.hpp"
 #include <string>
@@ -88,8 +89,8 @@ class Input {
                                 const SensorProcessorBase::GeneralParameters& generalSensorProcessorParameters);
 
   // ROS connection.
-  ros::Subscriber subscriber_;
-  rclcpp::Node nodeHandle_;
+  rclcpp::SubscriptionBase::SharedPtr subscriber_;
+  rclcpp::Node::SharedPtr node_;
 
   //! Sensor processor
   SensorProcessorBase::Ptr sensorProcessor_;
@@ -109,9 +110,11 @@ class Input {
 template <typename MsgT>
 void Input::registerCallback(ElevationMapping& map, CallbackT<MsgT> callback) {
   const Parameters parameters{parameters_.getData()};
-  subscriber_ = nodeHandle_.subscribe<MsgT>(
+  subscriber_ = node_->create_subscription<MsgT>(
       parameters.topic_, parameters.queueSize_,
-      std::bind(callback, std::ref(map), std::placeholders::_1, parameters.publishOnUpdate_, std::ref(sensorProcessor_)));
+      [callback, &map, this](const std::shared_ptr<const MsgT> msg) {
+        (map.*callback)(msg, parameters.publishOnUpdate_, sensorProcessor_);
+      });
   RCLCPP_INFO(rclcpp::get_logger("ElevationMapping"), "Subscribing to %s: %s, queue_size: %i.", parameters.type_.c_str(), parameters.topic_.c_str(), parameters.queueSize_);
 }
 
