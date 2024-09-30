@@ -293,7 +293,7 @@ class ElevationMapping {
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reloadParametersService_;
 
 
-  //TODO: convert to use executors, potentially something like this from nav2: https://github.com/ros-navigation/navigation2/blob/main/nav2_util/include/nav2_util/node_thread.hpp
+  //TODO: convert to use executors.
   //! Callback thread for the fusion services.
   std::thread fusionServiceThread_;
   //! Callback queue for fusion service thread.

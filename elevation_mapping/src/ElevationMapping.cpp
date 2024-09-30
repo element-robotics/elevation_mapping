@@ -64,14 +64,6 @@ ElevationMapping::ElevationMapping(rclcpp::Node::SharedPtr node)
 void ElevationMapping::setupSubscribers() {  // Handle deprecated point_cloud_topic and input_sources configuration.
   auto [parameters, parameterGuard]{parameters_.getDataToWrite()};
   const bool configuredInputSources = inputSources_.configureFromRos("input_sources");
-  const bool hasDeprecatedPointcloudTopic = node_.hasParam("point_cloud_topic");
-  if (hasDeprecatedPointcloudTopic) {
-    RCLCPP_WARN(node->get_logger("ElevationMapping"), "Parameter 'point_cloud_topic' is deprecated, please use 'input_sources' instead.");
-  }
-  if (!configuredInputSources && hasDeprecatedPointcloudTopic) {
-    pointCloudSubscriber_ = node_.subscribe<sensor_msgs::msg::PointCloud2>(
-        parameters.pointCloudTopic_, 1, [&](const auto& msg) { pointCloudCallback(msg, true, sensorProcessor_); });
-  }
   if (configuredInputSources) {
     inputSources_.registerCallbacks(*this, make_pair("pointcloud", &ElevationMapping::pointCloudCallback));
   }
@@ -88,73 +80,63 @@ void ElevationMapping::setupSubscribers() {  // Handle deprecated point_cloud_to
 void ElevationMapping::setupServices() {
   const Parameters parameters{parameters_.getData()};
   // Multi-threading for fusion.
-  ros::AdvertiseServiceOptions advertiseServiceOptionsForTriggerFusion = ros::AdvertiseServiceOptions::create<std_srvs::srv::Empty>(
-      "trigger_fusion", [&](auto& req, auto& res) { return fuseEntireMapServiceCallback(req, res); }, ros::VoidConstPtr(),
-      &fusionServiceQueue_);
-  fusionTriggerService_ = node_.advertiseService(advertiseServiceOptionsForTriggerFusion);
+  // Work out how to do this with ROS2 callback groups
+  // ros::AdvertiseServiceOptions advertiseServiceOptionsForTriggerFusion = ros::AdvertiseServiceOptions::create<std_srvs::srv::Empty>(
+  //     "trigger_fusion", [&](auto& req, auto& res) { return fuseEntireMapServiceCallback(req, res); }, ros::VoidConstPtr(),
+  //     &fusionServiceQueue_);
+  // fusionTriggerService_ = node_.advertiseService(advertiseServiceOptionsForTriggerFusion);
 
-  ros::AdvertiseServiceOptions advertiseServiceOptionsForGetFusedSubmap = ros::AdvertiseServiceOptions::create<grid_map_msgs::srv::GetGridMap>(
-      "get_submap", [&](auto& req, auto& res) { return getFusedSubmapServiceCallback(req, res); }, ros::VoidConstPtr(),
-      &fusionServiceQueue_);
-  fusedSubmapService_ = node_.advertiseService(advertiseServiceOptionsForGetFusedSubmap);
+  // ros::AdvertiseServiceOptions advertiseServiceOptionsForGetFusedSubmap = ros::AdvertiseServiceOptions::create<grid_map_msgs::srv::GetGridMap>(
+  //     "get_submap", [&](auto& req, auto& res) { return getFusedSubmapServiceCallback(req, res); }, ros::VoidConstPtr(),
+  //     &fusionServiceQueue_);
+  // fusedSubmapService_ = node_.advertiseService(advertiseServiceOptionsForGetFusedSubmap);
 
-  ros::AdvertiseServiceOptions advertiseServiceOptionsForGetRawSubmap = ros::AdvertiseServiceOptions::create<grid_map_msgs::srv::GetGridMap>(
-      "get_raw_submap", [&](auto& req, auto& res) { return getRawSubmapServiceCallback(req, res); }, ros::VoidConstPtr(),
-      &fusionServiceQueue_);
-  rawSubmapService_ = node_.advertiseService(advertiseServiceOptionsForGetRawSubmap);
+  // ros::AdvertiseServiceOptions advertiseServiceOptionsForGetRawSubmap = ros::AdvertiseServiceOptions::create<grid_map_msgs::srv::GetGridMap>(
+  //     "get_raw_submap", [&](auto& req, auto& res) { return getRawSubmapServiceCallback(req, res); }, ros::VoidConstPtr(),
+  //     &fusionServiceQueue_);
+  // rawSubmapService_ = node_.advertiseService(advertiseServiceOptionsForGetRawSubmap);
 
-  clearMapService_ = node_.advertiseService("clear_map", &ElevationMapping::clearMapServiceCallback, this);
-  enableUpdatesService_ = node_.advertiseService("enable_updates", &ElevationMapping::enableUpdatesServiceCallback, this);
-  disableUpdatesService_ = node_.advertiseService("disable_updates", &ElevationMapping::disableUpdatesServiceCallback, this);
-  maskedReplaceService_ = node_.advertiseService("masked_replace", &ElevationMapping::maskedReplaceServiceCallback, this);
-  saveMapService_ = node_.advertiseService("save_map", &ElevationMapping::saveMapServiceCallback, this);
-  loadMapService_ = node_.advertiseService("load_map", &ElevationMapping::loadMapServiceCallback, this);
-  reloadParametersService_ = node_.advertiseService("reload_parameters", &ElevationMapping::reloadParametersServiceCallback, this);
+  clearMapService_ = node_->create_service<std_srvs::srv::Empty>(
+      "clear_map", std::bind(&ElevationMapping::clearMapServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
+  enableUpdatesService_ = node_->create_service<std_srvs::srv::Empty>(
+      "enable_updates", std::bind(&ElevationMapping::enableUpdatesServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
+  disableUpdatesService_ = node_->create_service<std_srvs::srv::Empty>(
+      "disable_updates", std::bind(&ElevationMapping::disableUpdatesServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
+  maskedReplaceService_ = node_->create_service<std_srvs::srv::Empty>(
+      "masked_replace", std::bind(&ElevationMapping::maskedReplaceServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
+  saveMapService_ = node_->create_service<std_srvs::srv::Empty>(
+      "save_map", std::bind(&ElevationMapping::saveMapServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
+  loadMapService_ = node_->create_service<std_srvs::srv::Empty>(
+      "load_map", std::bind(&ElevationMapping::loadMapServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
+  reloadParametersService_ = node_->create_service<std_srvs::srv::Empty>(
+      "reload_parameters", std::bind(&ElevationMapping::reloadParametersServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 void ElevationMapping::setupTimers() {
+  
   const Parameters parameters{parameters_.getData()};
   ElevationMap::Parameters mapParameters{map_.parameters_.getData()};
-  mapUpdateTimer_ = node_.createTimer(parameters.maxNoUpdateDuration_, &ElevationMapping::mapUpdateTimerCallback, this, true, false);
+  mapUpdateTimer_ = node_->create_wall_timer(parameters.maxNoUpdateDuration_.to_chrono<std::chrono::milliseconds>(), 
+                                             std::bind(&ElevationMapping::mapUpdateTimerCallback, this));
 
-  if (!parameters.fusedMapPublishTimerDuration_.isZero()) {
-    rclcpp::TimerOptions timerOptions = rclcpp::TimerOptions(
-        parameters.fusedMapPublishTimerDuration_, [this](auto&& PH1) { publishFusedMapCallback(PH1); }, &fusionServiceQueue_, false, false);
-    fusedMapPublishTimer_ = node_.createTimer(timerOptions);
-  }
+  // TODO set up for ROS2 with callback groups and executors.
+  // if (!parameters.fusedMapPublishTimerDuration_.isZero()) {
+  //   rclcpp::TimerOptions timerOptions = rclcpp::TimerOptions(
+  //       parameters.fusedMapPublishTimerDuration_, [this](auto&& PH1) { publishFusedMapCallback(PH1); }, &fusionServiceQueue_, false, false);
+  //   fusedMapPublishTimer_ = node_.createTimer(timerOptions);
+  // }
 
-  // Multi-threading for visibility cleanup. Visibility clean-up does not help when continuous clean-up is enabled.
-  if (mapParameters.enableVisibilityCleanup_ && !parameters.visibilityCleanupTimerDuration_.isZero() &&
-      !mapParameters.enableContinuousCleanup_) {
-    rclcpp::TimerOptions timerOptions = rclcpp::TimerOptions(
-        parameters.visibilityCleanupTimerDuration_, [this](auto&& PH1) { visibilityCleanupCallback(PH1); }, &visibilityCleanupQueue_, false,
-        false);
-    visibilityCleanupTimer_ = node_.createTimer(timerOptions);
-  }
+  // // Multi-threading for visibility cleanup. Visibility clean-up does not help when continuous clean-up is enabled.
+  // if (mapParameters.enableVisibilityCleanup_ && !parameters.visibilityCleanupTimerDuration_.isZero() &&
+  //     !mapParameters.enableContinuousCleanup_) {
+  //   rclcpp::TimerOptions timerOptions = rclcpp::TimerOptions(
+  //       parameters.visibilityCleanupTimerDuration_, [this](auto&& PH1) { visibilityCleanupCallback(PH1); }, &visibilityCleanupQueue_, false,
+  //       false);
+  //   visibilityCleanupTimer_ = node_.createTimer(timerOptions);
+  // }
 }
 
 ElevationMapping::~ElevationMapping() {
-  // Shutdown all services.
-
-  {  // Fusion Service Queue
-    rawSubmapService_.shutdown();
-    fusionTriggerService_.shutdown();
-    fusedSubmapService_.shutdown();
-    fusedMapPublishTimer_.stop();
-
-    fusionServiceQueue_.disable();
-    fusionServiceQueue_.clear();
-  }
-
-  {  // Visibility cleanup queue
-    visibilityCleanupTimer_.stop();
-
-    visibilityCleanupQueue_.disable();
-    visibilityCleanupQueue_.clear();
-  }
-
-  node_.shutdown();
-
   // Join threads.
   if (fusionServiceThread_.joinable()) {
     fusionServiceThread_.join();
@@ -292,16 +274,15 @@ bool ElevationMapping::readParameters(bool reload) {
 
 bool ElevationMapping::initialize() {
   RCLCPP_INFO(node->get_logger("ElevationMapping"), "Elevation mapping node initializing ... ");
-  fusionServiceThread_ = boost::thread(&ElevationMapping::runFusionServiceThread, this);
-  rclcpp::Duration(1.0).sleep();  // Need this to get the TF caches fill up.
+  fusionServiceThread_ = std::thread(&ElevationMapping::runFusionServiceThread, this);
+  rclcpp::sleep_for(std::chrono::seconds(1));  // Need this to get the TF caches fill up.
   resetMapUpdateTimer();
-  fusedMapPublishTimer_.start();
-  visibilityCleanupThread_ = boost::thread([this] { visibilityCleanupThread(); });
-  visibilityCleanupTimer_.start();
+  visibilityCleanupThread_ = std::thread([this] { visibilityCleanupThread(); });
   initializeElevationMap();
   return true;
 }
 
+// TODO: Use executors and callback groups for this
 void ElevationMapping::runFusionServiceThread() {
   rclcpp::Rate loopRate(20);
 
@@ -313,6 +294,7 @@ void ElevationMapping::runFusionServiceThread() {
   }
 }
 
+// TODO: Use executors and callback groups for this
 void ElevationMapping::visibilityCleanupThread() {
   rclcpp::Rate loopRate(20);
 
@@ -331,7 +313,7 @@ void ElevationMapping::pointCloudCallback(const sensor_msgs::msg::PointCloud2::C
   if (!parameters.updatesEnabled_) {
     ROS_WARN_THROTTLE(10, "Updating of elevation map is disabled. (Warning message is throttled, 10s.)");
     if (publishPointCloud) {
-      map_.setTimestamp(rclcpp::Time::now());
+      map_.setTimestamp(node->now());
       map_.postprocessAndPublishRawElevationMap();
     }
     return;
@@ -455,7 +437,8 @@ void ElevationMapping::mapUpdateTimerCallback(const rclcpp::TimerEvent& /*unused
 
   boost::recursive_mutex::scoped_lock scopedLock(map_.getRawDataMutex());
 
-  stopMapUpdateTimer();
+  // TODO: Work out what to do here and bellow. This indicates that the mapUpdate takes longer than the update rate. We cannot cancel and start a timer in ROS2
+  // stopMapUpdateTimer();
 
   // Update map from motion prediction.
   if (!updatePrediction(time)) {
@@ -470,8 +453,8 @@ void ElevationMapping::mapUpdateTimerCallback(const rclcpp::TimerEvent& /*unused
     map_.fuseAll();
     map_.publishFusedElevationMap();
   }
-
-  resetMapUpdateTimer();
+  // TODO: as previous TODO.
+  // resetMapUpdateTimer();
 }
 
 void ElevationMapping::publishFusedMapCallback(const rclcpp::TimerEvent& /*unused*/) {
