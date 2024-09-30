@@ -30,6 +30,7 @@
 
 //std
 #include <thread>
+#include <chrono>
 
 // Elevation Mapping
 #include "elevation_mapping/ElevationMap.hpp"
@@ -48,14 +49,14 @@ enum class InitializationMethods { PlanarFloorInitializer };
  * The elevation mapping main class. Coordinates the ROS interfaces, the timing,
  * and the data handling between the other classes.
  */
-class ElevationMapping {
+class ElevationMapping:  public rclcpp::Node {
  public:
   /*!
    * Constructor.
    *
    * @param node the ROS node.
    */
-  explicit ElevationMapping(rclcpp::Node::SharedPtr node);
+  explicit ElevationMapping();
 
   /*!
    * Destructor.
@@ -293,11 +294,7 @@ class ElevationMapping {
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reloadParametersService_;
 
 
-  //TODO: convert to use executors.
-  //! Callback thread for the fusion services.
-  std::thread fusionServiceThread_;
-  //! Callback queue for fusion service thread.
-  // ros::CallbackQueue fusionServiceQueue_;
+
 
   //! Cache for the robot pose messages.
   message_filters::Cache<geometry_msgs::msg::PoseWithCovarianceStamped> robotPoseCache_;
@@ -335,13 +332,13 @@ class ElevationMapping {
     rclcpp::Duration timeTolerance_;
 
     //! Duration for the publishing the fusing map.
-    rclcpp::Duration fusedMapPublishTimerDuration_;
+    std::chrono::milliseconds fusedMapPublishTimerDuration_;
 
     //! If map is fused after every change for debugging/analysis purposes.
     bool isContinuouslyFusing_{false};
 
     //! Duration for the raytracing cleanup timer.
-    rclcpp::Duration visibilityCleanupTimerDuration_;
+    std::chrono::milliseconds visibilityCleanupTimerDuration_;
 
     //! Name of the mask layer used in the masked replace service
     std::string maskedReplaceServiceMaskLayerName_;
@@ -396,6 +393,10 @@ class ElevationMapping {
   // ros::CallbackQueue visibilityCleanupQueue_;
   //! Callback thread for raytracing cleanup.
   std::thread visibilityCleanupThread_;
+
+  // Callback groups to replace the fusionServiceThread/Queue and visibilityCleanupThread/Queue
+  rclcpp::CallbackGroup::SharedPtr fusionServiceCallbackGroup_;
+  rclcpp::CallbackGroup::SharedPtr visibilityCleanupCallbackGroup_;
 
   //! Becomes true when corresponding poses and point clouds can be found
   bool receivedFirstMatchingPointcloudAndPose_;
