@@ -31,14 +31,14 @@
 
 namespace elevation_mapping {
 
-SensorProcessorBase::SensorProcessorBase(rclcpp::Node& nodeHandle, const GeneralParameters& generalConfig)
-    : nodeHandle_(nodeHandle),
+SensorProcessorBase::SensorProcessorBase(rclcpp::Node::SharedPtr node, const GeneralParameters& generalConfig)
+    : node_(node),
       transformListener_(transformBuffer_),
       firstTfAvailable_(false) {
   pcl::console::setVerbosityLevel(pcl::console::L_ERROR);
   transformationSensorToMap_.setIdentity();
   generalParameters_ = generalConfig;
-  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), 
+  RCLCPP_DEBUG(node_->get_logger(), 
       "Sensor processor general parameters are:"
       "\n\t- robot_base_frame_id: %s"
       "\n\t- map_frame_id: %s",
@@ -49,13 +49,13 @@ SensorProcessorBase::~SensorProcessorBase() = default;
 
 bool SensorProcessorBase::readParameters() {
   Parameters parameters;
-  nodeHandle_.param("sensor_processor/ignore_points_above", parameters.ignorePointsUpperThreshold_,
-                    std::numeric_limits<double>::infinity());
-  nodeHandle_.param("sensor_processor/ignore_points_below", parameters.ignorePointsLowerThreshold_,
-                    -std::numeric_limits<double>::infinity());
+  parameters.ignorePointsUpperThreshold_ = node_.declare_param<double>("sensor_processor/ignore_points_above",
+                                                                       std::numeric_limits<double>::infinity()).get();
+  parameters.ignorePointsLowerThreshold_ = node_.declare_param<double>("sensor_processor/ignore_points_below",
+                                                                       -std::numeric_limits<double>::infinity()).get();
 
-  nodeHandle_.param("sensor_processor/apply_voxelgrid_filter", parameters.applyVoxelGridFilter_, false);
-  nodeHandle_.param("sensor_processor/voxelgrid_filter_size", parameters.sensorParameters_["voxelgrid_filter_size"], 0.0);
+  parameters.applyVoxelGridFilter_ = node_->declare_parameter<bool>("sensor_processor/apply_voxelgrid_filter", false).get();
+  parameters.sensorParameters_["voxelgrid_filter_size"] = node_->declare_parameter<double>("sensor_processor/voxelgrid_filter_size", 0.0).get();
   parameters_.setData(parameters);
   return true;
 }
@@ -64,16 +64,16 @@ bool SensorProcessorBase::process(const PointCloudType::ConstPtr pointCloudInput
                                   const PointCloudType::Ptr pointCloudMapFrame, Eigen::VectorXf& variances, std::string sensorFrame) {
   const Parameters parameters{parameters_.getData()};
   sensorFrameId_ = sensorFrame;
-  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "Sensor Processor processing for frame %s", sensorFrameId_.c_str());
+  RCLCPP_DEBUG(node_->get_logger(), "Sensor Processor processing for frame %s", sensorFrameId_.c_str());
 
   // Update transformation at timestamp of pointcloud
-  rclcpp::Time timeStamp;
-  timeStamp.fromNSec(1000 * pointCloudInput->header.stamp);
+  rclcpp::Time timeStamp(pointCloudInput->header.stamp * 1000);
   if (!updateTransformations(timeStamp)) {
     return false;
   }
 
   // Transform into sensor frame.
+  // TODO This might need to be a SharedPtr
   PointCloudType::Ptr pointCloudSensorFrame(new PointCloudType);
   transformPointCloud(pointCloudInput, pointCloudSensorFrame, sensorFrameId_);
 
@@ -127,15 +127,14 @@ bool SensorProcessorBase::updateTransformations(const rclcpp::Time& timeStamp) {
     if (!firstTfAvailable_) {
       return false;
     }
-    RCLCPP_ERROR(rclcpp::get_logger("ElevationMapping"), "%s", ex.what());
+    RCLCPP_ERROR(node_->get_logger(), "%s", ex.what());
     return false;
   }
 }
 
 bool SensorProcessorBase::transformPointCloud(PointCloudType::ConstPtr pointCloud, PointCloudType::Ptr pointCloudTransformed,
                                               const std::string& targetFrame) {
-  rclcpp::Time timeStamp;
-  timeStamp.fromNSec(1000 * pointCloud->header.stamp);
+  rclcpp::Time timeStamp(pointCloud->header.stamp * 1000);
   const std::string inputFrameId(pointCloud->header.frame_id);
 
   try {
@@ -145,10 +144,12 @@ bool SensorProcessorBase::transformPointCloud(PointCloudType::ConstPtr pointClou
     pcl::transformPointCloud(*pointCloud, *pointCloudTransformed, transform.cast<float>());
     pointCloudTransformed->header.frame_id = targetFrame;
 
-    ROS_DEBUG_THROTTLE(5, "Point cloud transformed to frame %s for time stamp %f.", targetFrame.c_str(),
-                      pointCloudTransformed->header.stamp / 1000.0);
+    RCLCPP_DEBUG_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000, 
+                "Point cloud transformed to frame %s for time stamp %f.", 
+                targetFrame.c_str(), 
+                pointCloudTransformed->header.stamp / 1000.0);
   } catch (tf2::TransformException& ex) {
-    RCLCPP_ERROR(rclcpp::get_logger("ElevationMapping"), "%s", ex.what());
+    RCLCPP_ERROR(node_->get_logger(), "%s", ex.what());
     return false;
   }
 
@@ -160,7 +161,7 @@ void SensorProcessorBase::removePointsOutsideLimits(PointCloudType::ConstPtr ref
   if (!std::isfinite(parameters.ignorePointsLowerThreshold_) && !std::isfinite(parameters.ignorePointsUpperThreshold_)) {
     return;
   }
-  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "Limiting point cloud to the height interval of [%f, %f] relative to the robot base.", parameters.ignorePointsLowerThreshold_,
+  RCLCPP_DEBUG(node_->get_logger(), "Limiting point cloud to the height interval of [%f, %f] relative to the robot base.", parameters.ignorePointsLowerThreshold_,
             parameters.ignorePointsUpperThreshold_);
 
   pcl::PassThrough<pcl::PointXYZRGBConfidenceRatio> passThroughFilter(true);
@@ -181,7 +182,7 @@ void SensorProcessorBase::removePointsOutsideLimits(PointCloudType::ConstPtr ref
     pointCloud->swap(tempPointCloud);
   }
 
-  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "removePointsOutsideLimits() reduced point cloud to %i points.", (int)pointClouds[0]->size());
+  RCLCPP_DEBUG(node_->get_logger(), "removePointsOutsideLimits() reduced point cloud to %i points.", (int)pointClouds[0]->size());
 }
 
 bool SensorProcessorBase::filterPointCloud(const PointCloudType::Ptr pointCloud) {
@@ -205,7 +206,9 @@ bool SensorProcessorBase::filterPointCloud(const PointCloudType::Ptr pointCloud)
     voxelGridFilter.filter(tempPointCloud);
     pointCloud->swap(tempPointCloud);
   }
-  ROS_DEBUG_THROTTLE(2, "cleanPointCloud() reduced point cloud to %i points.", static_cast<int>(pointCloud->size()));
+  RCLCPP_DEBUG_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000, 
+                        "cleanPointCloud() reduced point cloud to %i points.", 
+                        static_cast<int>(pointCloud->size()));
   return true;
 }
 

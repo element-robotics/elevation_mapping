@@ -27,17 +27,17 @@ namespace elevation_mapping {
  * International Conference on Applied Robotics for the Power Industry (CARPI), 2012.
  */
 
-LaserSensorProcessor::LaserSensorProcessor(rclcpp::Node& nodeHandle, const SensorProcessorBase::GeneralParameters& generalParameters)
-    : SensorProcessorBase(nodeHandle, generalParameters) {}
+LaserSensorProcessor::LaserSensorProcessor(rclcpp::Node::SharedPtr node, const SensorProcessorBase::GeneralParameters& generalParameters)
+    : SensorProcessorBase(node, generalParameters) {}
 
 LaserSensorProcessor::~LaserSensorProcessor() = default;
 
 bool LaserSensorProcessor::readParameters() {
   SensorProcessorBase::readParameters();
   auto [parameters, parameterGuard]{parameters_.getDataToWrite()};
-  nodeHandle_.param("sensor_processor/min_radius", parameters.sensorParameters_["min_radius"], 0.0);
-  nodeHandle_.param("sensor_processor/beam_angle", parameters.sensorParameters_["beam_angle"], 0.0);
-  nodeHandle_.param("sensor_processor/beam_constant", parameters.sensorParameters_["beam_constant"], 0.0);
+  parameters.sensorParameters_["min_radius"] = node_->declare_parameter<double>("sensor_processor/min_radius", 0.0).get();
+  parameters.sensorParameters_["beam_angle"] = node_->declare_parameter<double>("sensor_processor/beam_angle", 0.0).get();
+  parameters.sensorParameters_["beam_constant"] = node_->declare_parameter<double>("sensor_processor/beam_constant", 0.0).get();
   return true;
 }
 
