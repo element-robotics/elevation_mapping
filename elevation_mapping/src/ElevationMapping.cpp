@@ -522,8 +522,8 @@ bool ElevationMapping::updateMapLocation() {
   return true;
 }
 
-void ElevationMapping::getFusedSubmapServiceCallback(grid_map_msgs::srv::GetGridMap::Request& request,
-                                                     grid_map_msgs::srv::GetGridMap::Response& response) {
+void ElevationMapping::getFusedSubmapServiceCallback(const std::shared_ptr<grid_map_msgs::srv::GetGridMap::Request> request,
+                                                     std::shared_ptr<grid_map_msgs::srv::GetGridMap::Response> response) {
   grid_map::Position requestedSubmapPosition(request.position_x, request.position_y);
   grid_map::Length requestedSubmapLength(request.length_x, request.length_y);
   RCLCPP_DEBUG(this->get_logger("ElevationMapping"), "Elevation submap request: Position x=%f, y=%f, Length x=%f, y=%f.", requestedSubmapPosition.x(), requestedSubmapPosition.y(),
@@ -531,7 +531,6 @@ void ElevationMapping::getFusedSubmapServiceCallback(grid_map_msgs::srv::GetGrid
   boost::recursive_mutex::scoped_lock scopedLock(map_.getFusedDataMutex());
   map_.fuseArea(requestedSubmapPosition, requestedSubmapLength);
 
-  bool isSuccess{false};
   grid_map::Index index;
   grid_map::GridMap subMap = map_.getFusedGridMap().getSubmap(requestedSubmapPosition, requestedSubmapLength, index, isSuccess);
   scopedLock.unlock();
@@ -547,18 +546,16 @@ void ElevationMapping::getFusedSubmapServiceCallback(grid_map_msgs::srv::GetGrid
   }
 
   RCLCPP_DEBUG(this->get_logger("ElevationMapping"), "Elevation submap responded with timestamp %f.", map_.getTimeOfLastFusion().toSec());
-  return isSuccess;
 }
 
-bool ElevationMapping::getRawSubmapServiceCallback(grid_map_msgs::srv::GetGridMap::Request& request,
-                                                   grid_map_msgs::srv::GetGridMap::Response& response) {
+void ElevationMapping::getRawSubmapServiceCallback(const std::shared_ptr<grid_map_msgs::srv::GetGridMap::Request> request,
+                                                   std::shared_ptr<grid_map_msgs::srv::GetGridMap::Response> response) {
   grid_map::Position requestedSubmapPosition(request.position_x, request.position_y);
   grid_map::Length requestedSubmapLength(request.length_x, request.length_y);
   RCLCPP_DEBUG(this->get_logger("ElevationMapping"), "Elevation raw submap request: Position x=%f, y=%f, Length x=%f, y=%f.", requestedSubmapPosition.x(),
             requestedSubmapPosition.y(), requestedSubmapLength(0), requestedSubmapLength(1));
   boost::recursive_mutex::scoped_lock scopedLock(map_.getRawDataMutex());
 
-  bool isSuccess{false};
   grid_map::Index index;
   grid_map::GridMap subMap = map_.getRawGridMap().getSubmap(requestedSubmapPosition, requestedSubmapLength, index, isSuccess);
   scopedLock.unlock();
@@ -572,7 +569,6 @@ bool ElevationMapping::getRawSubmapServiceCallback(grid_map_msgs::srv::GetGridMa
     }
     grid_map::GridMapRosConverter::toMessage(subMap, layers, response.map);
   }
-  return isSuccess;
 }
 
 void ElevationMapping::disableUpdatesServiceCallback(const std::shared_ptr<std_srvs::srv::Empty::Request> request,
@@ -627,8 +623,8 @@ bool ElevationMapping::initializeElevationMap() {
 void ElevationMapping::clearMapServiceCallback(const std::shared_ptr<std_srvs::srv::Empty::Request> request, 
                                                std::shared_ptr<std_srvs::srv::Empty::Response> response) {
   RCLCPP_INFO(this->get_logger("ElevationMapping"), "Clearing map...");
-  bool success = map_.clear();
-  success &= initializeElevationMap();
+  map_.clear();
+  initializeElevationMap();
   RCLCPP_INFO(this->get_logger("ElevationMapping"), "Map cleared.");
 }
 
@@ -681,12 +677,10 @@ void ElevationMapping::maskedReplaceServiceCallback(const std::shared_ptr<grid_m
       RCLCPP_ERROR(this->get_logger("ElevationMapping"), "Masked replace service: Layer %s does not exist!", sourceLayerIterator->c_str());
     }
   }
-
-  return true;
 }
 
 void ElevationMapping::saveMapServiceCallback(const std::shared_ptr<grid_map_msgs::srv::ProcessFile::Request> request,
-                                              std::shared_ptr<grid_map_msgs::srv::ProcessFile::Respons> response) {
+                                              std::shared_ptr<grid_map_msgs::srv::ProcessFile::Response> response) {
   RCLCPP_INFO(this->get_logger("ElevationMapping"), "Saving map to file.");
   boost::recursive_mutex::scoped_lock scopedLock(map_.getFusedDataMutex());
   map_.fuseAll();
@@ -726,6 +720,7 @@ void ElevationMapping::loadMapServiceCallback(std::shared_ptr<grid_map_msgs::srv
   return static_cast<bool>(response.success);
 }
 
+// TODO: We can probably replace this with a set_parameters_callback instread.
 void ElevationMapping::reloadParametersServiceCallback(const std::shared_ptr<std_srvs::srv::Trigger::Request> /*request*/, 
                                                        std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
   Parameters fallbackParameters{parameters_.getData()};
@@ -739,8 +734,6 @@ void ElevationMapping::reloadParametersServiceCallback(const std::shared_ptr<std
     parameters_.setData(fallbackParameters);
     response.message = "Reloading parameters failed, reverted parameters to previous state!";
   }
-
-  return true;
 }
 
 void ElevationMapping::resetMapUpdateTimer() {
