@@ -11,13 +11,11 @@
 
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
-  auto node = rclcpp::Node::make_shared("elevation_mapping");
-  rclcpp::Node nodeHandle("~");
-  elevation_mapping::ElevationMapping elevationMap(nodeHandle);
 
-  // Spin
-  ros::AsyncSpinner spinner(nodeHandle.param("num_callback_threads", 1));  // Use n threads
-  spinner.start();
-  ros::waitForShutdown();
+  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 3);
+  auto elevation_node = std::make_shared<elevation_mapping::ElevationMapping>();
+  executor.add_node(elevation_node);
+  executor.spin();
+  rclcpp::shutdown();
   return 0;
 }
