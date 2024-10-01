@@ -14,7 +14,7 @@
 
 namespace elevation_mapping {
 
-RobotMotionMapUpdater::RobotMotionMapUpdater(rclcpp::Node nodeHandle) : nodeHandle_(nodeHandle), covarianceScale_(1.0) {
+RobotMotionMapUpdater::RobotMotionMapUpdater(rclcpp::Node::SharedPtr node) : node_(node), covarianceScale_(1.0) {
   previousReducedCovariance_.setZero();
   previousUpdateTime_ = rclcpp::Time::now();
   // TODO(max): How to initialize previousRobotPose_?
@@ -23,10 +23,11 @@ RobotMotionMapUpdater::RobotMotionMapUpdater(rclcpp::Node nodeHandle) : nodeHand
 RobotMotionMapUpdater::~RobotMotionMapUpdater() = default;
 
 bool RobotMotionMapUpdater::readParameters() {
-  nodeHandle_.param("robot_motion_map_update/covariance_scale", covarianceScale_, 1.0);
+  covarianceScale_ = node_->declare_parameter<double>("robot_motion_map_update/covariance_scale", 1.0);
   return true;
 }
 
+//TODO: Check grid_map examples to see if the map should be a shared pointer
 bool RobotMotionMapUpdater::update(ElevationMap& map, const Pose& robotPose, const PoseCovariance& robotPoseCovariance,
                                    const rclcpp::Time& time) {
   const PoseCovariance robotPoseCovarianceScaled = covarianceScale_ * robotPoseCovariance;
