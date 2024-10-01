@@ -14,17 +14,19 @@
 
 namespace elevation_mapping {
 
-PostprocessingPipelineFunctor::PostprocessingPipelineFunctor(rclcpp::Node& nodeHandle)
-    : nodeHandle_(nodeHandle), filterChain_("grid_map::GridMap"), filterChainConfigured_(false) {
+PostprocessingPipelineFunctor::PostprocessingPipelineFunctor(<rclcpp::Node::SharedPtr> node)
+    : node_(node), filterChain_("grid_map::GridMap"), filterChainConfigured_(false) {
   // TODO (magnus) Add logic when setting up failed. What happens actually if it is not configured?
   readParameters();
   const Parameters parameters{parameters_.getData()};
-  publisher_ = nodeHandle_.advertise<grid_map_msgs::msg::GridMap>(parameters.outputTopic_, 1, true);
+  rclcpp::QoS qos(rclcpp::KeepLast(1));
+  qos.transient_local(); // Enable latching equivalent
+  publisher_ = node_->create_publisher<grid_map_msgs::msg::GridMap>(parameters.outputTopic_, qos);
 
   // Setup filter chain.
-  if (!nodeHandle.hasParam(parameters.filterChainParametersName_) ||
-      !filterChain_.configure(parameters.filterChainParametersName_, nodeHandle)) {
-    RCLCPP_WARN(rclcpp::get_logger("ElevationMapping"), "Could not configure the filter chain. Will publish the raw elevation map without postprocessing!");
+  if (!node.hasParam(parameters.filterChainParametersName_) ||
+      !filterChain_.configure(parameters.filterChainParametersName_, node)) {
+    RCLCPP_WARN(node_->get_logger(), "Could not configure the filter chain. Will publish the raw elevation map without postprocessing!");
     return;
   }
 
@@ -35,20 +37,20 @@ PostprocessingPipelineFunctor::~PostprocessingPipelineFunctor() = default;
 
 void PostprocessingPipelineFunctor::readParameters() {
   Parameters parameters;
-  nodeHandle_.param("output_topic", parameters.outputTopic_, std::string("elevation_map_raw"));
-  nodeHandle_.param("postprocessor_pipeline_name", parameters.filterChainParametersName_, std::string("postprocessor_pipeline"));
+  parameters.outputTopic_ = node_.declare_parameter("output_topic", "elevation_map_raw").get();
+  parameters.filterChainParametersName_ = node_.declare_parameter("postprocessor_pipeline_name", "postprocessor_pipeline").get();
   parameters_.setData(parameters);
 }
 
 grid_map::GridMap PostprocessingPipelineFunctor::operator()(GridMap& inputMap) {
   if (not filterChainConfigured_) {
-    ROS_WARN_ONCE("No postprocessing pipeline was configured. Forwarding the raw elevation map!");
+    RCLCPP_WARN_ONCE(node_->get_logger(), "No postprocessing pipeline was configured. Forwarding the raw elevation map!");
     return inputMap;
   }
 
   grid_map::GridMap outputMap;
   if (not filterChain_.update(inputMap, outputMap)) {
-    RCLCPP_ERROR(rclcpp::get_logger("ElevationMapping"), "Could not perform the grid map filter chain! Forwarding the raw elevation map!");
+    RCLCPP_ERROR(node_->get_logger(), "Could not perform the grid map filter chain! Forwarding the raw elevation map!");
     return inputMap;
   }
 
@@ -60,11 +62,11 @@ void PostprocessingPipelineFunctor::publish(const GridMap& gridMap) const {
   grid_map_msgs::msg::GridMap outputMessage;
   grid_map::GridMapRosConverter::toMessage(gridMap, outputMessage);
   publisher_.publish(outputMessage);
-  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "Elevation map raw has been published.");
+  RCLCPP_DEBUG(node_->get_logger(), "Elevation map raw has been published.");
 }
 
 bool PostprocessingPipelineFunctor::hasSubscribers() const {
-  return publisher_.getNumSubscribers() > 0;
+  return publisher_.get_subscription_count() > 0;
 }
 
 }  // namespace elevation_mapping
