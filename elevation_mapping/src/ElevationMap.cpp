@@ -33,26 +33,27 @@ float intAsFloat(const uint32_t input) {
 
 namespace elevation_mapping {
 
-ElevationMap::ElevationMap(rclcpp::Node nodeHandle)
-    : nodeHandle_(nodeHandle),
+ElevationMap::ElevationMap(rclcpp::Node::SharedPtr node)
+    : node_(node),
       rawMap_({"elevation", "variance", "horizontal_variance_x", "horizontal_variance_y", "horizontal_variance_xy", "color", "time",
                "dynamic_time", "lowest_scan_point", "sensor_x_at_lowest_scan", "sensor_y_at_lowest_scan", "sensor_z_at_lowest_scan"}),
       fusedMap_({"elevation", "upper_bound", "lower_bound", "color"}),
-      postprocessorPool_(nodeHandle.param("postprocessor_num_threads", 1), nodeHandle_),
+      postprocessorPool_(node->declare_parameter<int>("postprocessor_num_threads", 1), node_),
       hasUnderlyingMap_(false) {
   rawMap_.setBasicLayers({"elevation", "variance"});
   fusedMap_.setBasicLayers({"elevation", "upper_bound", "lower_bound"});
   clear();
   const Parameters parameters{parameters_.getData()};
 
-  elevationMapFusedPublisher_ = nodeHandle_.advertise<grid_map_msgs::msg::GridMap>("elevation_map", 1);
+  elevationMapFusedPublisher_ = node_->create_publisher<grid_map_msgs::msg::GridMap>("elevation_map", 1);
   if (!parameters.underlyingMapTopic_.empty()) {
-    underlyingMapSubscriber_ = nodeHandle_.subscribe(parameters.underlyingMapTopic_, 1, &ElevationMap::underlyingMapCallback, this);
+    underlyingMapSubscriber_ = node_->create_subscription<grid_map_msgs::msg::GridMap>(
+        parameters.underlyingMapTopic_, 1, std::bind(&ElevationMap::underlyingMapCallback, this, std::placeholders::_1));
   }
-  // TODO(max): if (enableVisibilityCleanup_) when parameter cleanup is ready.
-  visibilityCleanupMapPublisher_ = nodeHandle_.advertise<grid_map_msgs::msg::GridMap>("visibility_cleanup_map", 1);
+  // TODO: if (enableVisibilityCleanup_) when parameter cleanup is ready.
+  visibilityCleanupMapPublisher_ = node_->create_publisher<grid_map_msgs::msg::GridMap>("visibility_cleanup_map", 1);
 
-  initialTime_ = rclcpp::Time::now();
+  initialTime_ = node_->now();
 }
 
 ElevationMap::~ElevationMap() = default;
@@ -62,28 +63,30 @@ void ElevationMap::setGeometry(const grid_map::Length& length, const double& res
   boost::recursive_mutex::scoped_lock scopedLockForFusedData(fusedMapMutex_);
   rawMap_.setGeometry(length, resolution, position);
   fusedMap_.setGeometry(length, resolution, position);
-  ROS_INFO_STREAM("Elevation map grid resized to " << rawMap_.getSize()(0) << " rows and " << rawMap_.getSize()(1) << " columns.");
+  RCLCPP_INFO_STREAM(node_->get_logger(), "Elevation map grid resized to " << rawMap_.getSize()(0) << " rows and " << rawMap_.getSize()(1) << " columns.");
 }
+
 bool ElevationMap::add(const PointCloudType::Ptr pointCloud, Eigen::VectorXf& pointCloudVariances, const rclcpp::Time& timestamp,
                        const Eigen::Affine3d& transformationSensorToMap) {
   const Parameters parameters{parameters_.getData()};
   if (static_cast<unsigned int>(pointCloud->size()) != static_cast<unsigned int>(pointCloudVariances.size())) {
-    RCLCPP_ERROR(rclcpp::get_logger("ElevationMapping"), "ElevationMap::add: Size of point cloud (%i) and variances (%i) do not agree.", (int)pointCloud->size(),
+    RCLCPP_ERROR(node_->get_logger(), "ElevationMap::add: Size of point cloud (%i) and variances (%i) do not agree.", (int)pointCloud->size(),
               (int)pointCloudVariances.size());
     return false;
   }
 
   // Initialization for time calculation.
-  const ros::WallTime methodStartTime(ros::WallTime::now());
-  const rclcpp::Time currentTime(rclcpp::Time::now());
-  const float currentTimeSecondsPattern{intAsFloat(static_cast<uint32_t>(static_cast<uint64_t>(currentTime.toSec())))};
+  // TODO: What is the purpose of this?
+  const auto methodStartTime = rclcpp::Clock(RCL_SYSTEM_TIME).now();
+  const auto currentTime = node_->now();
+  const float currentTimeSecondsPattern = static_cast<float>(currentTime.seconds());
   boost::recursive_mutex::scoped_lock scopedLockForRawData(rawMapMutex_);
 
   // Update initial time if it is not initialized.
-  if (initialTime_.toSec() == 0) {
+  if (initialTime_.seconds() == 0) {
     initialTime_ = timestamp;
   }
-  const float scanTimeSinceInitialization = (timestamp - initialTime_).toSec();
+  const float scanTimeSinceInitialization = (timestamp - initialTime_).seconds();
 
   // Store references for efficient interation.
   auto& elevationLayer = rawMap_["elevation"];
@@ -184,10 +187,10 @@ bool ElevationMap::add(const PointCloudType::Ptr pointCloud, Eigen::VectorXf& po
   }
 
   clean();
-  rawMap_.setTimestamp(timestamp.toNSec());  // Point cloud stores time in microseconds.
+  rawMap_.setTimestamp(timestamp.nanoseconds());  // Point cloud stores time in microseconds.
 
-  const ros::WallDuration duration = ros::WallTime::now() - methodStartTime;
-  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "Raw map has been updated with a new point cloud in %f s.", duration.toSec());
+  const auto duration = rclcpp::Clock(RCL_SYSTEM_TIME).now() - methodStartTime;
+  RCLCPP_DEBUG(node_->get_logger(), "Raw map has been updated with a new point cloud in %f s.", duration.seconds());
   return true;
 }
 
@@ -202,7 +205,7 @@ bool ElevationMap::update(const grid_map::Matrix& varianceUpdate, const grid_map
         (grid_map::Index(horizontalVarianceUpdateX.rows(), horizontalVarianceUpdateX.cols()) == size).all() &&
         (grid_map::Index(horizontalVarianceUpdateY.rows(), horizontalVarianceUpdateY.cols()) == size).all() &&
         (grid_map::Index(horizontalVarianceUpdateXY.rows(), horizontalVarianceUpdateXY.cols()) == size).all())) {
-    RCLCPP_ERROR(rclcpp::get_logger("ElevationMapping"), "The size of the update matrices does not match.");
+    RCLCPP_ERROR(node_->get_logger(), "The size of the update matrices does not match.");
     return false;
   }
 
@@ -211,19 +214,19 @@ bool ElevationMap::update(const grid_map::Matrix& varianceUpdate, const grid_map
   rawMap_.get("horizontal_variance_y") += horizontalVarianceUpdateY;
   rawMap_.get("horizontal_variance_xy") += horizontalVarianceUpdateXY;
   clean();
-  rawMap_.setTimestamp(time.toNSec());
+  rawMap_.setTimestamp(time.nanoseconds());
 
   return true;
 }
 
 bool ElevationMap::fuseAll() {
-  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "Requested to fuse entire elevation map.");
+  RCLCPP_DEBUG(node_->get_logger(), "Requested to fuse entire elevation map.");
   boost::recursive_mutex::scoped_lock scopedLock(fusedMapMutex_);
   return fuse(grid_map::Index(0, 0), fusedMap_.getSize());
 }
 
 bool ElevationMap::fuseArea(const Eigen::Vector2d& position, const Eigen::Array2d& length) {
-  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "Requested to fuse an area of the elevation map with center at (%f, %f) and side lengths (%f, %f)", position[0], position[1],
+  RCLCPP_DEBUG(node_->get_logger(), "Requested to fuse an area of the elevation map with center at (%f, %f) and side lengths (%f, %f)", position[0], position[1],
             length[0], length[1]);
 
   grid_map::Index topLeftIndex;
@@ -244,7 +247,7 @@ bool ElevationMap::fuseArea(const Eigen::Vector2d& position, const Eigen::Array2
 }
 
 bool ElevationMap::fuse(const grid_map::Index& topLeftIndex, const grid_map::Index& size) {
-  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "Fusing elevation map...");
+  RCLCPP_DEBUG(node_->get_logger(), "Fusing elevation map...");
 
   // Nothing to do.
   if ((size == 0).any()) {
@@ -252,7 +255,7 @@ bool ElevationMap::fuse(const grid_map::Index& topLeftIndex, const grid_map::Ind
   }
 
   // Initializations.
-  const ros::WallTime methodStartTime(ros::WallTime::now());
+  const auto methodStartTime = rclcpp::Clock(RCL_SYSTEM_TIME).now();
 
   // Copy raw elevation map data for safe multi-threading.
   boost::recursive_mutex::scoped_lock scopedLockForRawData(rawMapMutex_);
@@ -387,7 +390,7 @@ bool ElevationMap::fuse(const grid_map::Index& topLeftIndex, const grid_map::Ind
     float mean = (weights * means).sum() / weights.sum();
 
     if (!std::isfinite(mean)) {
-      RCLCPP_ERROR(rclcpp::get_logger("ElevationMapping"), "Something went wrong when fusing the map: Mean = %f", mean);
+      RCLCPP_ERROR(node_->get_logger(), "Something went wrong when fusing the map: Mean = %f", mean);
       continue;
     }
 
@@ -403,8 +406,8 @@ bool ElevationMap::fuse(const grid_map::Index& topLeftIndex, const grid_map::Ind
 
   fusedMap_.setTimestamp(rawMapCopy.getTimestamp());
 
-  const ros::WallDuration duration(ros::WallTime::now() - methodStartTime);
-  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "Elevation map has been fused in %f s.", duration.toSec());
+  const auto duration = rclcpp::Clock(RCL_SYSTEM_TIME).now() - methodStartTime;
+  RCLCPP_DEBUG(node_->get_logger(), "Elevation map has been fused in %f s.", duration.seconds());
 
   return true;
 }
@@ -428,8 +431,8 @@ bool ElevationMap::clear() {
 void ElevationMap::visibilityCleanup(const rclcpp::Time& updatedTime) {
   const Parameters parameters{parameters_.getData()};
   // Get current time to compute calculation time.
-  const ros::WallTime methodStartTime(ros::WallTime::now());
-  const double timeSinceInitialization = (updatedTime - initialTime_).toSec();
+  const auto methodStartTime = rclcpp::Clock(RCL_SYSTEM_TIME).now();
+  const double timeSinceInitialization = (updatedTime - initialTime_).seoncds();
 
   // Copy raw elevation map data for safe multi-threading.
   boost::recursive_mutex::scoped_lock scopedLockForVisibilityCleanupData(visibilityCleanupMapMutex_);
@@ -517,10 +520,10 @@ void ElevationMap::visibilityCleanup(const rclcpp::Time& updatedTime) {
   // Publish visibility cleanup map for debugging.
   publishVisibilityCleanupMap();
 
-  ros::WallDuration duration(ros::WallTime::now() - methodStartTime);
-  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "Visibility cleanup has been performed in %f s (%d points).", duration.toSec(), (int)cellPositionsToRemove.size());
-  if (duration.toSec() > parameters.visibilityCleanupDuration_) {
-    RCLCPP_WARN(rclcpp::get_logger("ElevationMapping"), "Visibility cleanup duration is too high (current rate is %f).", 1.0 / duration.toSec());
+  const auto duration = rclcpp::Clock(RCL_SYSTEM_TIME).now() - methodStartTime;
+  RCLCPP_DEBUG(node_->get_logger(), "Visibility cleanup has been performed in %f s (%d points).", duration.seconds(), (int)cellPositionsToRemove.size());
+  if (duration.seconds() > parameters.visibilityCleanupDuration_) {
+    RCLCPP_WARN(node_->get_logger(), "Visibility cleanup duration is too high (current rate is %f).", 1.0 / duration.seconds());
   }
 }
 
@@ -529,7 +532,7 @@ void ElevationMap::move(const Eigen::Vector2d& position) {
   std::vector<grid_map::BufferRegion> newRegions;
 
   if (rawMap_.move(position, newRegions)) {
-    RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "Elevation map has been moved to position (%f, %f).", rawMap_.getPosition().x(), rawMap_.getPosition().y());
+    RCLCPP_DEBUG(node_->get_logger(), "Elevation map has been moved to position (%f, %f).", rawMap_.getPosition().x(), rawMap_.getPosition().y());
 
     // The "dynamic_time" layer is meant to be interpreted as integer values, therefore nan:s need to be zeroed.
     grid_map::Matrix& dynTime{rawMap_.get("dynamic_time")};
@@ -562,7 +565,7 @@ bool ElevationMap::publishFusedElevationMap() {
   grid_map_msgs::msg::GridMap message;
   grid_map::GridMapRosConverter::toMessage(fusedMapCopy, message);
   elevationMapFusedPublisher_.publish(message);
-  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "Elevation map (fused) has been published.");
+  RCLCPP_DEBUG(node_->get_logger(), "Elevation map (fused) has been published.");
   return true;
 }
 
@@ -583,7 +586,7 @@ bool ElevationMap::publishVisibilityCleanupMap() {
   grid_map_msgs::msg::GridMap message;
   grid_map::GridMapRosConverter::toMessage(visibilityCleanupMapCopy, message);
   visibilityCleanupMapPublisher_.publish(message);
-  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "Visibility cleanup map has been published.");
+  RCLCPP_DEBUG(node_->get_logger(), "Visibility cleanup map has been published.");
   return true;
 }
 
@@ -606,12 +609,13 @@ void ElevationMap::setFusedGridMap(const grid_map::GridMap& map) {
 }
 
 rclcpp::Time ElevationMap::getTimeOfLastUpdate() {
-  return rclcpp::Time().fromNSec(rawMap_.getTimestamp());
+  // TODO: Why dont we lock the rawMapMutex here?
+  return rclcpp::Time(rawMap_.getTimestamp());
 }
 
 rclcpp::Time ElevationMap::getTimeOfLastFusion() {
   boost::recursive_mutex::scoped_lock scopedLock(fusedMapMutex_);
-  return rclcpp::Time().fromNSec(fusedMap_.getTimestamp());
+  return rclcpp::Time(fusedMap_.getTimestamp());
 }
 
 const kindr::HomTransformQuatD& ElevationMap::getPose() {
@@ -661,8 +665,8 @@ void ElevationMap::setFrameId(const std::string& frameId) {
 }
 
 void ElevationMap::setTimestamp(rclcpp::Time timestamp) {
-  rawMap_.setTimestamp(timestamp.toNSec());
-  fusedMap_.setTimestamp(timestamp.toNSec());
+  rawMap_.setTimestamp(timestamp.nanoseconds());
+  fusedMap_.setTimestamp(timestamp.nanoseconds());
 }
 
 const std::string& ElevationMap::getFrameId() {
@@ -679,15 +683,15 @@ bool ElevationMap::hasFusedMapSubscribers() const {
 
 void ElevationMap::underlyingMapCallback(const grid_map_msgs::msg::GridMap& underlyingMap) {
   const Parameters parameters{parameters_.getData()};
-  RCLCPP_INFO(rclcpp::get_logger("ElevationMapping"), "Updating underlying map.");
+  RCLCPP_INFO(node_->get_logger(), "Updating underlying map.");
   grid_map::GridMapRosConverter::fromMessage(underlyingMap, underlyingMap_);
   if (underlyingMap_.getFrameId() != rawMap_.getFrameId()) {
-    ROS_ERROR_STREAM("The underlying map does not have the same map frame ('" << underlyingMap_.getFrameId() << "') as the elevation map ('"
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "The underlying map does not have the same map frame ('" << underlyingMap_.getFrameId() << "') as the elevation map ('"
                                                                               << rawMap_.getFrameId() << "').");
     return;
   }
   if (!underlyingMap_.exists("elevation")) {
-    ROS_ERROR_STREAM("The underlying map does not have an 'elevation' layer.");
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "The underlying map does not have an 'elevation' layer.");
     return;
   }
   if (!underlyingMap_.exists("variance")) {

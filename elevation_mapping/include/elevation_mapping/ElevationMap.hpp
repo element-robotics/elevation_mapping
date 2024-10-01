@@ -298,8 +298,9 @@ class ElevationMap {
   kindr::HomTransformQuatD pose_;
 
   //! ROS publishers. Publishing of the raw elevation map is handled by the postprocessing pool.
-  ros::Publisher elevationMapFusedPublisher_;
-  ros::Publisher visibilityCleanupMapPublisher_;
+  // TODO: Seems sorta weird to have the publisher on the parent node stored in this child. I think it works
+  rclcpp::Publisher<grid_map_msgs::msg::GridMap>::SharedPtr elevationMapFusedPublisher_;
+  rclcpp::Publisher<grid_map_msgs::msg::GridMap>::SharedPtr visibilityCleanupMapPublisher_;
 
   //! Mutex lock for fused map.
   boost::recursive_mutex fusedMapMutex_;
@@ -311,7 +312,8 @@ class ElevationMap {
   boost::recursive_mutex visibilityCleanupMapMutex_;
 
   //! Underlying map subscriber.
-  ros::Subscriber underlyingMapSubscriber_;
+  // TODO: where is this published. Seems like we are subcribing to a topic on the same node?
+  rclcpp::Subscription<grid_map_msgs::msg::GridMap>::SharedPtr underlyingMapSubscriber_;
 
   //! Initial ros time
   rclcpp::Time initialTime_;
