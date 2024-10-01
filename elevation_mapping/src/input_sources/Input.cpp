@@ -17,65 +17,44 @@
 
 namespace elevation_mapping {
 
-Input::Input(rclcpp::Node nh) : nodeHandle_(nh) {}
+Input::Input(rclcpp::Node::SharedPtr node) : node_(node) {}
 
-bool Input::configure(std::string name, const XmlRpc::XmlRpcValue& configuration,
-                      const SensorProcessorBase::GeneralParameters& generalSensorProcessorParameters) {
+bool Input::configure(std::string name, const std::string& inputSourcesNamespace,
+                 const SensorProcessorBase::GeneralParameters& generalSensorProcessorParameters) {
   // Configuration Guards.
-  if (configuration.getType() != XmlRpc::XmlRpcValue::TypeStruct) {
-    RCLCPP_ERROR(rclcpp::get_logger("ElevationMapping"), 
-        "Input source must be specified as map, but is "
-        "XmlRpcType:%d.",
-        configuration.getType());
-    return false;
-  }
-
   Parameters parameters;
 
-  // Check Optional enabled parameter.
-  if (configuration.hasMember("enabled")) {
-    if (configuration["enabled"].getType() != XmlRpc::XmlRpcValue::TypeBoolean) {
-      RCLCPP_ERROR(rclcpp::get_logger("ElevationMapping"), 
-          "Could not configure input source %s because parameter 'enabled' has the "
-          "wrong type.",
-          name.c_str());
-      return false;
-    }
+  parameters.isEnabled_ = node_->declare_parameter<bool>(inputSourcesNamespace + "." + name + ".enabled",
+                                                         true).get();
 
-    parameters.isEnabled_ = static_cast<bool>(configuration["enabled"]);
-  }
 
-  // Check that configuration exist and has an appropriate type.
-  using nameAndType = std::pair<std::string, XmlRpc::XmlRpcValue::Type>;
-  for (const nameAndType& member : std::vector<nameAndType>{{"type", XmlRpc::XmlRpcValue::TypeString},
-                                                            {"topic", XmlRpc::XmlRpcValue::TypeString},
-                                                            {"queue_size", XmlRpc::XmlRpcValue::TypeInt},
-                                                            {"publish_on_update", XmlRpc::XmlRpcValue::TypeBoolean},
-                                                            {"sensor_processor", XmlRpc::XmlRpcValue::TypeStruct}}) {
-    if (!configuration.hasMember(member.first)) {
-      RCLCPP_ERROR(rclcpp::get_logger("ElevationMapping"), "Could not configure input source %s because no %s was given.", name.c_str(), member.first.c_str());
-      return false;
-    }
-    if (configuration[member.first].getType() != member.second) {
-      RCLCPP_ERROR(rclcpp::get_logger("ElevationMapping"), 
+
+  node_->declare_parameter<std::string>(inputSourcesNamespace + "." + name + ".type");
+  node_->declare_parameter<std::string>(inputSourcesNamespace + "." + name + ".topic");
+  node_->declare_parameter<int>(inputSourcesNamespace + "." + name + ".queue_size");
+  node_->declare_parameter<bool>(inputSourcesNamespace + "." + name + ".publish_on_update");
+
+  for (const str& param : std::vector<std::string>{"type", "topic", "queue_size", "publish_on_update"}){
+    if (!node_->has_parameter(inputSourcesNamespace + "." + name + "." + param)){
+      RCLCPP_ERROR(node->get_logger(), 
           "Could not configure input source %s because member %s has the "
-          "wrong type.",
-          name.c_str(), member.first.c_str());
+          "is not set.",
+          name.c_str(), param.c_str());
       return false;
     }
   }
 
   parameters.name_ = name;
-  parameters.type_ = static_cast<std::string>(configuration["type"]);
-  parameters.topic_ = static_cast<std::string>(configuration["topic"]);
-  const int& queueSize = static_cast<int>(configuration["queue_size"]);
+  parameters.type_ = node_->get_parameter(inputSourcesNamespace + "." + name + ".type").get();
+  parameters.topic_ = node_->get_parameter(inputSourcesNamespace + "." + name + ".topic").get();
+  const int queueSize = node_->get_parameter(inputSourcesNamespace + "." + name + ".queue_size").get();
   if (queueSize >= 0) {
-    parameters.queueSize_ = static_cast<unsigned int>(queueSize);
+    parameters.queueSize_ = queueSize;
   } else {
-    RCLCPP_ERROR(rclcpp::get_logger("ElevationMapping"), "The specified queue_size is negative.");
+    RCLCPP_ERROR(node_->get_logger(), "The specified queue_size is negative.");
     return false;
   }
-  parameters.publishOnUpdate_ = static_cast<bool>(configuration["publish_on_update"]);
+  parameters.publishOnUpdate_ = node_->get_parameter(inputSourcesNamespace + "." + name + ".publish_on_update").get();
 
   parameters_.setData(parameters);
 
@@ -84,25 +63,25 @@ bool Input::configure(std::string name, const XmlRpc::XmlRpcValue& configuration
     return false;
   }
 
-  RCLCPP_DEBUG(rclcpp::get_logger("ElevationMapping"), "Configured %s:%s @ %s (publishing_on_update: %s), using %s to process data.\n", parameters.type_.c_str(),
-            parameters.name_.c_str(), nodeHandle_.resolveName(parameters.topic_).c_str(), parameters.publishOnUpdate_ ? "true" : "false",
+  RCLCPP_DEBUG(node_->get_logger(), "Configured %s:%s @ %s (publishing_on_update: %s), using %s to process data.\n", parameters.type_.c_str(),
+            parameters.name_.c_str(), node_.resolveName(parameters.topic_).c_str(), parameters.publishOnUpdate_ ? "true" : "false",
             static_cast<std::string>(configuration["sensor_processor"]["type"]).c_str());
   return true;
 }
 
 std::string Input::getSubscribedTopic() const {
   const Parameters parameters{parameters_.getData()};
-  return nodeHandle_.resolveName(parameters.topic_);
+  return node_.resolveName(parameters.topic_);
 }
 
 bool Input::configureSensorProcessor(std::string name, const XmlRpc::XmlRpcValue& parameters,
                                      const SensorProcessorBase::GeneralParameters& generalSensorProcessorParameters) {
   if (!parameters["sensor_processor"].hasMember("type")) {
-    RCLCPP_ERROR(rclcpp::get_logger("ElevationMapping"), "Could not configure sensor processor of input source %s because no type was given.", name.c_str());
+    RCLCPP_ERROR(node_->get_logger(), "Could not configure sensor processor of input source %s because no type was given.", name.c_str());
     return false;
   }
   if (parameters["sensor_processor"]["type"].getType() != XmlRpc::XmlRpcValue::TypeString) {
-    RCLCPP_ERROR(rclcpp::get_logger("ElevationMapping"), 
+    RCLCPP_ERROR(node_->get_logger(), 
         "Could not configure sensor processor of input source %s because the member 'type' has the "
         "wrong type.",
         name.c_str());
@@ -110,15 +89,15 @@ bool Input::configureSensorProcessor(std::string name, const XmlRpc::XmlRpcValue
   }
   std::string sensorType = static_cast<std::string>(parameters["sensor_processor"]["type"]);
   if (sensorType == "structured_light") {
-    sensorProcessor_ = std::make_unique<StructuredLightSensorProcessor>(nodeHandle_, generalSensorProcessorParameters);
+    sensorProcessor_ = std::make_unique<StructuredLightSensorProcessor>(node_, generalSensorProcessorParameters);
   } else if (sensorType == "stereo") {
-    sensorProcessor_ = std::make_unique<StereoSensorProcessor>(nodeHandle_, generalSensorProcessorParameters);
+    sensorProcessor_ = std::make_unique<StereoSensorProcessor>(node_, generalSensorProcessorParameters);
   } else if (sensorType == "laser") {
-    sensorProcessor_ = std::make_unique<LaserSensorProcessor>(nodeHandle_, generalSensorProcessorParameters);
+    sensorProcessor_ = std::make_unique<LaserSensorProcessor>(node_, generalSensorProcessorParameters);
   } else if (sensorType == "perfect") {
-    sensorProcessor_ = std::make_unique<PerfectSensorProcessor>(nodeHandle_, generalSensorProcessorParameters);
+    sensorProcessor_ = std::make_unique<PerfectSensorProcessor>(node_, generalSensorProcessorParameters);
   } else {
-    RCLCPP_ERROR(rclcpp::get_logger("ElevationMapping"), "The sensor type %s is not available.", sensorType.c_str());
+    RCLCPP_ERROR(node_->get_logger(), "The sensor type %s is not available.", sensorType.c_str());
     return false;
   }
 

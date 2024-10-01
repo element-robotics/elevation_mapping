@@ -69,7 +69,7 @@ void ElevationMapping::setupSubscribers() {  // Handle deprecated point_cloud_to
   auto [parameters, parameterGuard]{parameters_.getDataToWrite()};
   const bool configuredInputSources = inputSources_.configureFromRos("input_sources");
   if (configuredInputSources) {
-    inputSources_.registerCallbacks(shared_from_this(), make_pair("pointcloud", &ElevationMapping::pointCloudCallback));
+    inputSources_.registerCallbacks(make_pair("pointcloud", &ElevationMapping::pointCloudCallback));
   }
 
   if (!parameters.robotPoseTopic_.empty()) {
@@ -240,22 +240,22 @@ bool ElevationMapping::readParameters(bool reload) {
   parameters.initSubmapVariance_ = node_->declare_parameter<double>("init_submap_variance", 0.01);
   parameters.targetFrameInitSubmap_ = node_->declare_parameter<std::string>("target_frame_init_submap", std::string("/footprint"));
 
-  // SensorProcessor parameters. Deprecated, use the sensorProcessor from within input sources instead!
-  std::string sensorType = node_->declare_parameter<std::string>("sensor_processor/type", "structured_light");
+  // // SensorProcessor parameters. Deprecated, use the sensorProcessor from within input sources instead!
+  // std::string sensorType = node_->declare_parameter<std::string>("sensor_processor/type", "structured_light");
 
-  SensorProcessorBase::GeneralParameters generalSensorProcessorConfig{node_->declare_parameter<std::string>("robot_base_frame_id", "/robot"),
-                                                                      parameters.mapFrameId_};
-  if (sensorType == "structured_light") {
-    sensorProcessor_ = std::make_unique<StructuredLightSensorProcessor>(node_, generalSensorProcessorConfig);
-  } else if (sensorType == "stereo") {
-    sensorProcessor_ = std::make_unique<StereoSensorProcessor>(node_, generalSensorProcessorConfig);
-  } else if (sensorType == "laser") {
-    sensorProcessor_ = std::make_unique<LaserSensorProcessor>(node_, generalSensorProcessorConfig);
-  } else if (sensorType == "perfect") {
-    sensorProcessor_ = std::make_unique<PerfectSensorProcessor>(node_, generalSensorProcessorConfig);
-  } else {
-    RCLCPP_ERROR(node_->get_logger("ElevationMapping"), "The sensor type %s is not available.", sensorType.c_str());
-  }
+  // SensorProcessorBase::GeneralParameters generalSensorProcessorConfig{node_->declare_parameter<std::string>("robot_base_frame_id", "/robot"),
+  //                                                                     parameters.mapFrameId_};
+  // if (sensorType == "structured_light") {
+  //   sensorProcessor_ = std::make_unique<StructuredLightSensorProcessor>(node_, generalSensorProcessorConfig);
+  // } else if (sensorType == "stereo") {
+  //   sensorProcessor_ = std::make_unique<StereoSensorProcessor>(node_, generalSensorProcessorConfig);
+  // } else if (sensorType == "laser") {
+  //   sensorProcessor_ = std::make_unique<LaserSensorProcessor>(node_, generalSensorProcessorConfig);
+  // } else if (sensorType == "perfect") {
+  //   sensorProcessor_ = std::make_unique<PerfectSensorProcessor>(node_, generalSensorProcessorConfig);
+  // } else {
+  //   RCLCPP_ERROR(node_->get_logger("ElevationMapping"), "The sensor type %s is not available.", sensorType.c_str());
+  // }
   // TODO: modify these functions to use node based parameters
   if (!sensorProcessor_->readParameters()) {
     return false;

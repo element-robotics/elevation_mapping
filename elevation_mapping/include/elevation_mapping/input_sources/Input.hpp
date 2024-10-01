@@ -8,8 +8,6 @@
 
 #pragma once
 
-// TODO: convert to use DDS settings instead of ROS1 XmlRpcValue
-#include <XmlRpc.h>
 #include "rclcpp/rclcpp.hpp"
 #include <string>
 
@@ -30,10 +28,10 @@ class Input {
 
   /**
    * @brief Constructor.
-   * @param nh Reference to the nodeHandle of the manager. Used to subscribe
+   * @param node Reference to the nodeHandle of the manager. Used to subscribe
    * to inputs.
    */
-  explicit Input(rclcpp::Node nh);
+  explicit Input(rclcpp::Node::SharedPtr node);
 
   /**
    * Whether the input source is enabled or not.
@@ -46,21 +44,20 @@ class Input {
   /**
    * @brief Configure the input source.
    * @param name Name of this input source.
-   * @param configuration to configure from.
+   * @param inputSourcesNamespace Namespace under which the input source configuration is located.
    * @param generalSensorProcessorParameters Parameters shared by all sensor processors.
    * @return True if configuring was successful.
    */
-  bool configure(std::string name, const XmlRpc::XmlRpcValue& configuration,
+  bool configure(std::string name, const std::string& inputSourcesNamespace,
                  const SensorProcessorBase::GeneralParameters& generalSensorProcessorParameters);
 
   /**
    * @brief Registers the corresponding callback in the elevationMap.
-   * @param map The map we want to link this input source to.
    * @param callback The callback to use for incoming data.
    * @tparam MsgT The message types of the callback.
    */
   template <typename MsgT>
-  void registerCallback(ElevationMapping& map, CallbackT<MsgT> callback);
+  void registerCallback(CallbackT<MsgT> callback);
 
   /**
    * @return The topic (as absolute path, with renames) that this input

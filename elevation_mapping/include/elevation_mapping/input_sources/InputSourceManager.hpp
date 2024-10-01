@@ -10,7 +10,6 @@
 
 #include "elevation_mapping/input_sources/Input.hpp"
 
-#include <XmlRpc.h>
 #include "rclcpp/rclcpp.hpp"
 
 namespace elevation_mapping {
@@ -39,12 +38,11 @@ class InputSourceManager {
   /**
    * @brief Configure the input sources.
    * This will configure all managed input sources.
-   * @param config The list of input source parameters.
-   * @param sourceConfigurationName The name of the input source configuration.
+   * @param inputSourcesNamespace The namespace of the subscribers list to load.
+   * @param inputSource The list of input source parameters.
    * @return True if configuring was successful.
    */
-  //TODO: convert to use DDS settings instead of ROS1 XmlRpcValue
-  bool configure(const XmlRpc::XmlRpcValue& config, const std::string& sourceConfigurationName);
+  bool configure(const std::string& inputSourcesNamespace, const std::vector<std::string>& inputSource);
 
   /**
    * @brief Registers the corresponding callback in the elevationMap.
@@ -75,24 +73,24 @@ class InputSourceManager {
 // Template definitions
 
 template <typename... MsgT>
-bool InputSourceManager::registerCallbacks(ElevationMapping& map, std::pair<const char*, Input::CallbackT<MsgT>>... callbacks) {
+bool InputSourceManager::registerCallbacks(std::pair<const char*, Input::CallbackT<MsgT>>... callbacks) {
   if (sources_.empty()) {
-    RCLCPP_WARN(rclcpp::get_logger("ElevationMapping"), "Not registering any callbacks, no input sources given. Did you configure the InputSourceManager?");
+    RCLCPP_WARN(node_->get_logger(), "Not registering any callbacks, no input sources given. Did you configure the InputSourceManager?");
     return true;
   }
   for (Input& source : sources_) {
     bool callbackRegistered = false;
     for (auto& callback : {callbacks...}) {
       if (source.getType() == callback.first) {
-        source.registerCallback(map, callback.second);
+        source.registerCallback(node_, callback.second);
         callbackRegistered = true;
       }
     }
     if (not callbackRegistered) {
-      RCLCPP_WARN(rclcpp::get_logger("ElevationMapping"), "The configuration contains input sources of an unknown type: %s", source.getType().c_str());
-      RCLCPP_WARN(rclcpp::get_logger("ElevationMapping"), "Available types are:");
+      RCLCPP_WARN(node_->get_logger(), "The configuration contains input sources of an unknown type: %s", source.getType().c_str());
+      RCLCPP_WARN(node_->get_logger(), "Available types are:");
       for (auto& callback : {callbacks...}) {
-        RCLCPP_WARN(rclcpp::get_logger("ElevationMapping"), "- %s", callback.first);
+        RCLCPP_WARN(node_->get_logger(), "- %s", callback.first);
       }
       return false;
     }
