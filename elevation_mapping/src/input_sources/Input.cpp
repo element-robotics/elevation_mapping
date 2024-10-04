@@ -74,21 +74,9 @@ std::string Input::getSubscribedTopic() const {
   return node_.resolveName(parameters.topic_);
 }
 
-bool Input::configureSensorProcessor(std::string name, const XmlRpc::XmlRpcValue& parameters,
-                                     const SensorProcessorBase::GeneralParameters& generalSensorProcessorParameters) {
-  if (!parameters["sensor_processor"].hasMember("type")) {
-    RCLCPP_ERROR(node_->get_logger(), "Could not configure sensor processor of input source %s because no type was given.", name.c_str());
-    return false;
-  }
-  if (parameters["sensor_processor"]["type"].getType() != XmlRpc::XmlRpcValue::TypeString) {
-    RCLCPP_ERROR(node_->get_logger(), 
-        "Could not configure sensor processor of input source %s because the member 'type' has the "
-        "wrong type.",
-        name.c_str());
-    return false;
-  }
-  std::string sensorType = static_cast<std::string>(parameters["sensor_processor"]["type"]);
-  if (sensorType == "structured_light") {
+bool Input::configureSensorProcessor(const SensorProcessorBase::GeneralParameters& generalSensorProcessorParameters) {
+  std::string sensorType = parameters_.getData().type_;
+  if ( sensorType == "structured_light") {
     sensorProcessor_ = std::make_unique<StructuredLightSensorProcessor>(node_, generalSensorProcessorParameters);
   } else if (sensorType == "stereo") {
     sensorProcessor_ = std::make_unique<StereoSensorProcessor>(node_, generalSensorProcessorParameters);

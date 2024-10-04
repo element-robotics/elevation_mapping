@@ -29,7 +29,7 @@ bool InputSourceManager::configure(const std::string& inputSourcesNamespace, con
   bool successfulConfiguration = true;
   // TODO: Why not an unordered_set?
   std::set<std::string> subscribedTopics;
-  SensorProcessorBase::GeneralParameters generalSensorProcessorConfig{node_.declare_parameter<std::string>("robot_base_frame_id", "/base_link"),
+  SensorProcessorBase::GeneralParameters generalSensorProcessorConfig{node_->declare_parameter<std::string>("robot_base_frame_id", "/base_link"),
                                                                       node_.get_parameter("map_frame_id")};
   // Configure all input sources in the list.
   for (const auto& inputSource : inputSources) {
