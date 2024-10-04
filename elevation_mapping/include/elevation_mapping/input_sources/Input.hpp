@@ -9,6 +9,7 @@
 #pragma once
 
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp/qos.hpp"
 #include <string>
 
 #include "elevation_mapping/ThreadSafeDataWrapper.hpp"
@@ -24,7 +25,7 @@ class ElevationMapping;  // Forward declare to avoid cyclic import dependency.
 class Input {
  public:
   template <typename MsgT>
-  using CallbackT = void (ElevationMapping::*)(const std::shared_ptr<const MsgT>&, bool, const SensorProcessorBase::Ptr&);
+  using CallbackT = void (ElevationMapping::*)(const std::shared_ptr<MsgT>, bool, const SensorProcessorBase::Ptr);
 
   /**
    * @brief Constructor.
@@ -82,8 +83,7 @@ class Input {
    * processor.
    * @return True if successful.
    */
-  bool configureSensorProcessor(std::string name, const XmlRpc::XmlRpcValue& parameters,
-                                const SensorProcessorBase::GeneralParameters& generalSensorProcessorParameters);
+  bool configureSensorProcessor(const SensorProcessorBase::GeneralParameters& generalSensorProcessorParameters);
 
   // ROS connection.
   rclcpp::SubscriptionBase::SharedPtr subscriber_;
@@ -105,14 +105,15 @@ class Input {
 };
 
 template <typename MsgT>
-void Input::registerCallback(ElevationMapping& map, CallbackT<MsgT> callback) {
+void Input::registerCallback(CallbackT<MsgT> callback) {
   const Parameters parameters{parameters_.getData()};
+
+  rclcpp::QoS qos_settings = rclcpp::QoS(rclcpp::KeepLast(parameters.queueSize_)).best_effort();
+
   subscriber_ = node_->create_subscription<MsgT>(
-      parameters.topic_, parameters.queueSize_,
-      [callback, &map, this](const std::shared_ptr<const MsgT> msg) {
-        (map.*callback)(msg, parameters.publishOnUpdate_, sensorProcessor_);
-      });
-  RCLCPP_INFO(rclcpp::get_logger("ElevationMapping"), "Subscribing to %s: %s, queue_size: %i.", parameters.type_.c_str(), parameters.topic_.c_str(), parameters.queueSize_);
+      parameters.topic_, qos_settings,
+      std::bind(callback, node_.get(), std::placeholders::_1, parameters.publishOnUpdate_,sensorProcessor_));
+  RCLCPP_INFO(node_->get_logger(), "Subscribing to %s: %s, queue_size: %i.", parameters.type_.c_str(), parameters.topic_.c_str(), parameters.queueSize_);
 }
 
 }  // namespace elevation_mapping

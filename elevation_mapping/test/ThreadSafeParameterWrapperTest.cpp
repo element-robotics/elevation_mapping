@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 
-#include <message_logger/message_logger.hpp>
+// #include <message_logger/message_logger.hpp>
 
 #include "elevation_mapping/ThreadSafeDataWrapper.hpp"
 
@@ -30,7 +30,7 @@ class DataAccessFixture : public ::testing::Test {
     for (int i{0}; i < numReads_; i++) {
       Parameters params{parameters_.getData()};
       sleepInMilliseconds(30);
-      MELO_DEBUG_STREAM(threadName << " read: [" << params.myDynamicParameter_[0] << ", " << params.myDynamicParameter_[1] << "]\n");
+      // MELO_DEBUG_STREAM(threadName << " read: [" << params.myDynamicParameter_[0] << ", " << params.myDynamicParameter_[1] << "]\n");
     }
   }
 
@@ -58,8 +58,8 @@ class DataAccessFixture : public ::testing::Test {
     sleepInMilliseconds(5);
     parameters_.setData(updatedParameters);
 
-    MELO_DEBUG_STREAM(threadName << " wrote: [" << updatedParameters.myDynamicParameter_[0] << ", "
-                                 << updatedParameters.myDynamicParameter_[1] << "]\n");
+    // MELO_DEBUG_STREAM(threadName << " wrote: [" << updatedParameters.myDynamicParameter_[0] << ", "
+    //                              << updatedParameters.myDynamicParameter_[1] << "]\n");
   }
 
   /**
@@ -82,8 +82,8 @@ class DataAccessFixture : public ::testing::Test {
     // Mimic some long ongoing update parameter operation.
     sleepInMilliseconds(5);
 
-    MELO_DEBUG_STREAM(threadName << " wrote: [" << updatedParameters.myDynamicParameter_[0] << ", "
-                                 << updatedParameters.myDynamicParameter_[1] << "]\n");
+    // MELO_DEBUG_STREAM(threadName << " wrote: [" << updatedParameters.myDynamicParameter_[0] << ", "
+    //                              << updatedParameters.myDynamicParameter_[1] << "]\n");
   }
 
   void testForDataRace(bool isDataRaceExpected) {
@@ -103,7 +103,7 @@ class DataAccessFixture : public ::testing::Test {
 };
 
 TEST_F(DataAccessFixture, TestNonConcurrentReadAndWriteNonDataRacePreventingWrite) {  // NOLINT
-  MELO_DEBUG("\n\nTesting Non-Concurrent read and writes: \n\n");
+  // MELO_DEBUG("\n\nTesting Non-Concurrent read and writes: \n\n");
 
   threads_.emplace_back([&]() {
     readerThreadFunction("Reader1");
@@ -118,7 +118,7 @@ TEST_F(DataAccessFixture, TestNonConcurrentReadAndWriteNonDataRacePreventingWrit
 }
 
 TEST_F(DataAccessFixture, TestNonConcurrentReadAndWriteDataRacePreventingWrite) {  // NOLINT
-  MELO_DEBUG("\n\nTesting Non-Concurrent read and writes: \n\n");
+  // MELO_DEBUG("\n\nTesting Non-Concurrent read and writes: \n\n");
 
   threads_.emplace_back([&]() {
     readerThreadFunction("Reader1");
@@ -131,7 +131,7 @@ TEST_F(DataAccessFixture, TestNonConcurrentReadAndWriteDataRacePreventingWrite) 
 }
 
 TEST_F(DataAccessFixture, TestMalunctioningConcurrentReadAndWrite) {  // NOLINT
-  MELO_DEBUG("\n\nTesting Concurrent read and writes: \n\n");
+  // MELO_DEBUG("\n\nTesting Concurrent read and writes: \n\n");
 
   threads_.emplace_back([&]() { readerThreadFunction("Reader1"); });
   threads_.emplace_back([&]() { readerThreadFunction("Reader2"); });
@@ -142,7 +142,7 @@ TEST_F(DataAccessFixture, TestMalunctioningConcurrentReadAndWrite) {  // NOLINT
 }
 
 TEST_F(DataAccessFixture, TestFunctioningConcurrentReadAndWrite) {  // NOLINT
-  MELO_DEBUG("\n\nTesting Concurrent read and writes: \n\n");
+  // MELO_DEBUG("\n\nTesting Concurrent read and writes: \n\n");
 
   threads_.emplace_back([&]() { readerThreadFunction("Reader1"); });
   threads_.emplace_back([&]() { readerThreadFunction("Reader2"); });

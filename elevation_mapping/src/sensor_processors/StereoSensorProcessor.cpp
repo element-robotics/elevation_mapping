@@ -26,15 +26,15 @@ StereoSensorProcessor::~StereoSensorProcessor() = default;
 bool StereoSensorProcessor::readParameters() {
   SensorProcessorBase::readParameters();
   auto [parameters, parameterGuard]{parameters_.getDataToWrite()};
-  parameters.sensorParameters_["p_1"] = node_->declare_parameter<double>("sensor_processor/p_1", 0.0).get();
-  parameters.sensorParameters_["p_2"] = node_->declare_parameter<double>("sensor_processor/p_2", 0.0).get();
-  parameters.sensorParameters_["p_3"] = node_->declare_parameter<double>("sensor_processor/p_3", 0.0).get();
-  parameters.sensorParameters_["p_4"] = node_->declare_parameter<double>("sensor_processor/p_4", 0.0).get();
-  parameters.sensorParameters_["p_5"] = node_->declare_parameter<double>("sensor_processor/p_5", 0.0).get();
-  parameters.sensorParameters_["lateral_factor"] = node_->declare_parameter<double>("sensor_processor/lateral_factor", 0.0).get();
-  parameters.sensorParameters_["depth_to_disparity_factor"] = node_->declare_parameter<double>("sensor_processor/depth_to_disparity_factor", 0.0).get();
-  parameters.sensorParameters_["cutoff_min_depth"] = node_->declare_parameter<double>("sensor_processor/cutoff_min_depth", std::numeric_limits<double>::min()).get();
-  parameters.sensorParameters_["cutoff_max_depth"] = node_->declare_parameter<double>("sensor_processor/cutoff_max_depth", std::numeric_limits<double>::max()).get();
+  parameters.sensorParameters_["p_1"] = node_->declare_parameter<double>("sensor_processor/p_1", 0.0);
+  parameters.sensorParameters_["p_2"] = node_->declare_parameter<double>("sensor_processor/p_2", 0.0);
+  parameters.sensorParameters_["p_3"] = node_->declare_parameter<double>("sensor_processor/p_3", 0.0);
+  parameters.sensorParameters_["p_4"] = node_->declare_parameter<double>("sensor_processor/p_4", 0.0);
+  parameters.sensorParameters_["p_5"] = node_->declare_parameter<double>("sensor_processor/p_5", 0.0);
+  parameters.sensorParameters_["lateral_factor"] = node_->declare_parameter<double>("sensor_processor/lateral_factor", 0.0);
+  parameters.sensorParameters_["depth_to_disparity_factor"] = node_->declare_parameter<double>("sensor_processor/depth_to_disparity_factor", 0.0);
+  parameters.sensorParameters_["cutoff_min_depth"] = node_->declare_parameter<double>("sensor_processor/cutoff_min_depth", std::numeric_limits<double>::min());
+  parameters.sensorParameters_["cutoff_max_depth"] = node_->declare_parameter<double>("sensor_processor/cutoff_max_depth", std::numeric_limits<double>::max());
   return true;
 }
 

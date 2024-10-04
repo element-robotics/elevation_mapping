@@ -29,9 +29,10 @@ PerfectSensorProcessor::PerfectSensorProcessor(rclcpp::Node::SharedPtr node, con
 
 PerfectSensorProcessor::~PerfectSensorProcessor() = default;
 
-bool PerfectSensorProcessor::readParameters() {
-  return SensorProcessorBase::readParameters();
-}
+// Method gets inherited from SensorProcessorBase.
+// bool PerfectSensorProcessor::readParameters() {
+//   return SensorProcessorBase::readParameters();
+// }
 
 bool PerfectSensorProcessor::computeVariances(const PointCloudType::ConstPtr pointCloud,
                                               const Eigen::Matrix<double, 6, 6>& robotPoseCovariance, Eigen::VectorXf& variances) {

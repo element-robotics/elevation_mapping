@@ -141,8 +141,9 @@ class SensorProcessorBase {
   rclcpp::Node::SharedPtr node_;
 
   //! TF transform listener and buffer.
-  tf2_ros::Buffer transformBuffer_;
-  tf2_ros::TransformListener transformListener_;
+  // TODO: Can we use a buffer and listener from the node?
+  tf2_ros::Buffer::SharedPtr transformBuffer_;
+  std::shared_ptr<tf2_ros::TransformListener> transformListener_;
 
   //! Rotation from Base to Sensor frame (C_SB)
   kindr::RotationMatrixD rotationBaseToSensor_;

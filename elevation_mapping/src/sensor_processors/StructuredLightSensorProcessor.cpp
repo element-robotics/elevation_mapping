@@ -32,14 +32,14 @@ StructuredLightSensorProcessor::~StructuredLightSensorProcessor() = default;
 bool StructuredLightSensorProcessor::readParameters() {
   SensorProcessorBase::readParameters();
   auto [parameters, parameterGuard]{parameters_.getDataToWrite()};
-  parameters.sensorParameters_["normal_factor_a"] = node_->declare_parameter("sensor_processor.normal_factor_a", 0.0).get();
-  parameters.sensorParameters_["normal_factor_b"] = node_->declare_parameter("sensor_processor.normal_factor_b", 0.0).get();
-  parameters.sensorParameters_["normal_factor_c"] = node_->declare_parameter("sensor_processor.normal_factor_c", 0.0).get();
-  parameters.sensorParameters_["normal_factor_d"] = node_->declare_parameter("sensor_processor.normal_factor_d", 0.0).get();
-  parameters.sensorParameters_["normal_factor_e"] = node_->declare_parameter("sensor_processor.normal_factor_e", 0.0).get();
-  parameters.sensorParameters_["lateral_factor"] = node_->declare_parameter("sensor_processor.lateral_factor", 0.0).get();
-  parameters.sensorParameters_["cutoff_min_depth"] = node_->declare_parameter("sensor_processor.cutoff_min_depth", std::numeric_limits<double>::min()).get();
-  parameters.sensorParameters_["cutoff_max_depth"] = node_->declare_parameter("sensor_processor.cutoff_max_depth", std::numeric_limits<double>::max()).get();
+  parameters.sensorParameters_["normal_factor_a"] = node_->declare_parameter("sensor_processor.normal_factor_a", 0.0);
+  parameters.sensorParameters_["normal_factor_b"] = node_->declare_parameter("sensor_processor.normal_factor_b", 0.0);
+  parameters.sensorParameters_["normal_factor_c"] = node_->declare_parameter("sensor_processor.normal_factor_c", 0.0);
+  parameters.sensorParameters_["normal_factor_d"] = node_->declare_parameter("sensor_processor.normal_factor_d", 0.0);
+  parameters.sensorParameters_["normal_factor_e"] = node_->declare_parameter("sensor_processor.normal_factor_e", 0.0);
+  parameters.sensorParameters_["lateral_factor"] = node_->declare_parameter("sensor_processor.lateral_factor", 0.0);
+  parameters.sensorParameters_["cutoff_min_depth"] = node_->declare_parameter("sensor_processor.cutoff_min_depth", std::numeric_limits<double>::min());
+  parameters.sensorParameters_["cutoff_max_depth"] = node_->declare_parameter("sensor_processor.cutoff_max_depth", std::numeric_limits<double>::max());
   return true;
 }
 

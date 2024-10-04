@@ -14,23 +14,24 @@ namespace elevation_mapping {
 InputSourceManager::InputSourceManager(const rclcpp::Node::SharedPtr node) : node_(node) {}
 
 bool InputSourceManager::configureFromRos(const std::string& inputSourcesNamespace) {
-  node_->declare_parameter<std::vector<std::string>>(input_sources_namespace + ".sources");
-  std::vector<std::string> inputsSources;
-  if (!node_->get_parameter(inputSources + ".sources", inputsSources) || inputsSources.empty()) {
-      RCLCPP_WARN(node_->get_logger()), 
-          "No input sources specified. No inputs will be configured.";
+  node_->declare_parameter<std::vector<std::string>>(inputSourcesNamespace + ".sources");
+  std::vector<std::string> inputSources;
+  if (!node_->get_parameter(inputSourcesNamespace + ".sources", inputSources) || inputSources.empty()) {
+      RCLCPP_WARN(node_->get_logger(), 
+          "No input sources specified. No inputs will be configured.");
       return false;
     }
-  return configure(inputSourcesNamespace, inputSourceNames);
+  return configure(inputSourcesNamespace, inputSources);
 }
 
-bool InputSourceManager::configure(const std::string& inputSourcesNamespace, const std::vector<std::string>& inputSource) {
+bool InputSourceManager::configure(const std::string& inputSourcesNamespace, const std::vector<std::string>& inputSources) {
 
   bool successfulConfiguration = true;
   // TODO: Why not an unordered_set?
   std::set<std::string> subscribedTopics;
+  //TODO: Proper error checking for parameters here
   SensorProcessorBase::GeneralParameters generalSensorProcessorConfig{node_->declare_parameter<std::string>("robot_base_frame_id", "/base_link"),
-                                                                      node_.get_parameter("map_frame_id")};
+                                                                      node_->get_parameter("map_frame_id").as_string()};
   // Configure all input sources in the list.
   for (const auto& inputSource : inputSources) {
     Input source{(node_)};

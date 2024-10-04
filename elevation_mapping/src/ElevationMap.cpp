@@ -432,7 +432,7 @@ void ElevationMap::visibilityCleanup(const rclcpp::Time& updatedTime) {
   const Parameters parameters{parameters_.getData()};
   // Get current time to compute calculation time.
   const auto methodStartTime = rclcpp::Clock(RCL_SYSTEM_TIME).now();
-  const double timeSinceInitialization = (updatedTime - initialTime_).seoncds();
+  const double timeSinceInitialization = (updatedTime - initialTime_).seconds();
 
   // Copy raw elevation map data for safe multi-threading.
   boost::recursive_mutex::scoped_lock scopedLockForVisibilityCleanupData(visibilityCleanupMapMutex_);
@@ -562,15 +562,14 @@ bool ElevationMap::publishFusedElevationMap() {
   grid_map::GridMap fusedMapCopy = fusedMap_;
   scopedLock.unlock();
   fusedMapCopy.add("uncertainty_range", fusedMapCopy.get("upper_bound") - fusedMapCopy.get("lower_bound"));
-  grid_map_msgs::msg::GridMap message;
-  grid_map::GridMapRosConverter::toMessage(fusedMapCopy, message);
-  elevationMapFusedPublisher_.publish(message);
+  grid_map_msgs::msg::GridMap::SharedPtr message = grid_map::GridMapRosConverter::toMessage(fusedMapCopy);
+  elevationMapFusedPublisher_->publish(*message);
   RCLCPP_DEBUG(node_->get_logger(), "Elevation map (fused) has been published.");
   return true;
 }
 
 bool ElevationMap::publishVisibilityCleanupMap() {
-  if (visibilityCleanupMapPublisher_.getNumSubscribers() < 1) {
+  if (visibilityCleanupMapPublisher_->get_subscription_count() < 1) {
     return false;
   }
   boost::recursive_mutex::scoped_lock scopedLock(visibilityCleanupMapMutex_);
@@ -583,9 +582,8 @@ bool ElevationMap::publishVisibilityCleanupMap() {
   visibilityCleanupMapCopy.erase("horizontal_variance_xy");
   visibilityCleanupMapCopy.erase("color");
   visibilityCleanupMapCopy.erase("time");
-  grid_map_msgs::msg::GridMap message;
-  grid_map::GridMapRosConverter::toMessage(visibilityCleanupMapCopy, message);
-  visibilityCleanupMapPublisher_.publish(message);
+  grid_map_msgs::msg::GridMap::SharedPtr message = grid_map::GridMapRosConverter::toMessage(visibilityCleanupMapCopy);
+  visibilityCleanupMapPublisher_->publish(*message);
   RCLCPP_DEBUG(node_->get_logger(), "Visibility cleanup map has been published.");
   return true;
 }
@@ -678,7 +676,7 @@ bool ElevationMap::hasRawMapSubscribers() const {
 }
 
 bool ElevationMap::hasFusedMapSubscribers() const {
-  return elevationMapFusedPublisher_.getNumSubscribers() >= 1;
+  return elevationMapFusedPublisher_->get_subscription_count() >= 1;
 }
 
 void ElevationMap::underlyingMapCallback(const grid_map_msgs::msg::GridMap& underlyingMap) {

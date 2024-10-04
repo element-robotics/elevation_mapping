@@ -39,7 +39,7 @@ class PostprocessorPool {
    * @param poolSize The number of worker threads to allocate.
    * @param node The node handle used to configure the task to run and to publish the finished tasks.
    */
-  PostprocessorPool(std::size_t poolSize, rclcpp::Node::SharePtr node);
+  PostprocessorPool(std::size_t poolSize, rclcpp::Node::SharedPtr node);
 
   /**
    * @brief Destructor.

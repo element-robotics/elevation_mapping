@@ -46,7 +46,6 @@ class InputSourceManager {
 
   /**
    * @brief Registers the corresponding callback in the elevationMap.
-   * @param map The map we want to link the input sources to.
    * @param callbacks pairs of callback type strings and their corresponding
    * callback. E.g: std::make_pair("pointcloud",
    * &ElevationMap::pointCloudCallback), std::make_pair("depthimage",
@@ -55,7 +54,7 @@ class InputSourceManager {
    * @return True if registering was successful.
    */
   template <typename... MsgT>
-  bool registerCallbacks(ElevationMapping& map, std::pair<const char*, Input::CallbackT<MsgT>>... callbacks);
+  bool registerCallbacks(std::pair<const char*, Input::CallbackT<MsgT>>... callbacks);
 
   /**
    * @return The number of successfully configured input sources.
@@ -82,7 +81,7 @@ bool InputSourceManager::registerCallbacks(std::pair<const char*, Input::Callbac
     bool callbackRegistered = false;
     for (auto& callback : {callbacks...}) {
       if (source.getType() == callback.first) {
-        source.registerCallback(node_, callback.second);
+        source.registerCallback(callback.second);
         callbackRegistered = true;
       }
     }

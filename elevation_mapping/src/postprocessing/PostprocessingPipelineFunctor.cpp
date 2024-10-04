@@ -14,7 +14,7 @@
 
 namespace elevation_mapping {
 
-PostprocessingPipelineFunctor::PostprocessingPipelineFunctor(<rclcpp::Node::SharedPtr> node)
+PostprocessingPipelineFunctor::PostprocessingPipelineFunctor(rclcpp::Node::SharedPtr node)
     : node_(node), filterChain_("grid_map::GridMap"), filterChainConfigured_(false) {
   // TODO (magnus) Add logic when setting up failed. What happens actually if it is not configured?
   readParameters();
@@ -24,8 +24,8 @@ PostprocessingPipelineFunctor::PostprocessingPipelineFunctor(<rclcpp::Node::Shar
   publisher_ = node_->create_publisher<grid_map_msgs::msg::GridMap>(parameters.outputTopic_, qos);
 
   // Setup filter chain.
-  if (!node.hasParam(parameters.filterChainParametersName_) ||
-      !filterChain_.configure(parameters.filterChainParametersName_, node)) {
+  if (!node_->has_parameter(parameters.filterChainParametersName_) ||
+      !filterChain_.configure(parameters.filterChainParametersName_, node_->get_node_logging_interface(), node_->get_node_parameters_interface())) {
     RCLCPP_WARN(node_->get_logger(), "Could not configure the filter chain. Will publish the raw elevation map without postprocessing!");
     return;
   }
@@ -37,8 +37,8 @@ PostprocessingPipelineFunctor::~PostprocessingPipelineFunctor() = default;
 
 void PostprocessingPipelineFunctor::readParameters() {
   Parameters parameters;
-  parameters.outputTopic_ = node_.declare_parameter("output_topic", "elevation_map_raw").get();
-  parameters.filterChainParametersName_ = node_.declare_parameter("postprocessor_pipeline_name", "postprocessor_pipeline").get();
+  parameters.outputTopic_ = node_->declare_parameter<std::string>("output_topic", "elevation_map_raw");
+  parameters.filterChainParametersName_ = node_->declare_parameter<std::string>("postprocessor_pipeline_name", "postprocessor_pipeline");
   parameters_.setData(parameters);
 }
 
@@ -59,14 +59,13 @@ grid_map::GridMap PostprocessingPipelineFunctor::operator()(GridMap& inputMap) {
 
 void PostprocessingPipelineFunctor::publish(const GridMap& gridMap) const {
   // Publish filtered output grid map.
-  grid_map_msgs::msg::GridMap outputMessage;
-  grid_map::GridMapRosConverter::toMessage(gridMap, outputMessage);
-  publisher_.publish(outputMessage);
+  auto outputMessage = grid_map::GridMapRosConverter::toMessage(gridMap);
+  publisher_->publish(std::move(outputMessage));
   RCLCPP_DEBUG(node_->get_logger(), "Elevation map raw has been published.");
 }
 
 bool PostprocessingPipelineFunctor::hasSubscribers() const {
-  return publisher_.get_subscription_count() > 0;
+  return publisher_->get_subscription_count() > 0;
 }
 
 }  // namespace elevation_mapping

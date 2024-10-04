@@ -66,7 +66,7 @@ void PostprocessorPool::wrapTask(size_t serviceIndex) {
   }
   // Suppress all exceptions.
   catch (const std::exception& exception) {
-    ROS_ERROR_STREAM("Postprocessor pipeline, thread " << serviceIndex << " experienced an error: " << exception.what());
+    RCLCPP_ERROR(rclcpp::get_logger("PostprocessorPool"), "Postprocessor pipeline, thread %zu experienced an error: %s", serviceIndex, exception.what());
   }
 
   // Task has finished, so increment count of available threads.

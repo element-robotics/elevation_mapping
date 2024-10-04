@@ -35,9 +35,9 @@ LaserSensorProcessor::~LaserSensorProcessor() = default;
 bool LaserSensorProcessor::readParameters() {
   SensorProcessorBase::readParameters();
   auto [parameters, parameterGuard]{parameters_.getDataToWrite()};
-  parameters.sensorParameters_["min_radius"] = node_->declare_parameter<double>("sensor_processor/min_radius", 0.0).get();
-  parameters.sensorParameters_["beam_angle"] = node_->declare_parameter<double>("sensor_processor/beam_angle", 0.0).get();
-  parameters.sensorParameters_["beam_constant"] = node_->declare_parameter<double>("sensor_processor/beam_constant", 0.0).get();
+  parameters.sensorParameters_["min_radius"] = node_->declare_parameter<double>("sensor_processor/min_radius", 0.0);
+  parameters.sensorParameters_["beam_angle"] = node_->declare_parameter<double>("sensor_processor/beam_angle", 0.0);
+  parameters.sensorParameters_["beam_constant"] = node_->declare_parameter<double>("sensor_processor/beam_constant", 0.0);
   return true;
 }
 

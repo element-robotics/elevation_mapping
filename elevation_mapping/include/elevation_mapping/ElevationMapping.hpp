@@ -70,8 +70,8 @@ class ElevationMapping:  public rclcpp::Node {
    * @param publishPointCloud If true, publishes the pointcloud after updating the map.
    * @param sensorProcessor_ The sensorProcessor to use in this callback.
    */
-  void pointCloudCallback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& pointCloudMsg, bool publishPointCloud,
-                          const SensorProcessorBase::Ptr& sensorProcessor_);
+  void pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr pointCloudMsg, bool publishPointCloud,
+                          const SensorProcessorBase::Ptr sensorProcessor_);
 
   /*!
    * Callback function for the update timer. Forces an update of the map from
@@ -80,7 +80,7 @@ class ElevationMapping:  public rclcpp::Node {
    *
    * @param timerEvent    The timer event.
    */
-  void mapUpdateTimerCallback(const rclcpp::TimerEvent& timerEvent);
+  void mapUpdateTimerCallback();
 
   /*!
    * Callback function for the fused map publish timer. Publishes the fused map
@@ -88,21 +88,21 @@ class ElevationMapping:  public rclcpp::Node {
    *
    * @param timerEvent    The timer event.
    */
-  void publishFusedMapCallback(const rclcpp::TimerEvent& timerEvent);
+  void publishFusedMapCallback();
 
   /*!
    * Callback function for cleaning map based on visibility ray tracing.
    *
    * @param timerEvent  The timer event.
    */
-  void visibilityCleanupCallback(const rclcpp::TimerEvent& timerEvent);
+  void visibilityCleanupCallback();
 
   /*!
    * ROS service callback function to trigger the fusion of the entire
    * elevation map.
    *
-   * @param request     The ROS service request.
-   * @param response    The ROS service response.
+   * @param request     The ROS service request->
+   * @param response    The ROS service response->
    */
   void fuseEntireMapServiceCallback(const std::shared_ptr<std_srvs::srv::Empty::Request> request,
                                     std::shared_ptr<std_srvs::srv::Empty::Response> response);
@@ -129,8 +129,8 @@ class ElevationMapping:  public rclcpp::Node {
   /*!
    * ROS service callback function to enable updates of the elevation map.
    *
-   * @param request     The ROS service request.
-   * @param response    The ROS service response.
+   * @param request     The ROS service request->
+   * @param response    The ROS service response->
    */
   void enableUpdatesServiceCallback(const std::shared_ptr<std_srvs::srv::Empty::Request> request,
                                     std::shared_ptr<std_srvs::srv::Empty::Response> response);
@@ -138,8 +138,8 @@ class ElevationMapping:  public rclcpp::Node {
   /*!
    * ROS service callback function to disable updates of the elevation map.
    *
-   * @param request     The ROS service request.
-   * @param response    The ROS service response.
+   * @param request     The ROS service request->
+   * @param response    The ROS service response->
    */
   void disableUpdatesServiceCallback(const std::shared_ptr<std_srvs::srv::Empty::Request> request,
                                      std::shared_ptr<std_srvs::srv::Empty::Response> response);
@@ -147,8 +147,8 @@ class ElevationMapping:  public rclcpp::Node {
   /*!
    * ROS service callback function to clear all data of the elevation map.
    *
-   * @param request     The ROS service request.
-   * @param response    The ROS service response.
+   * @param request     The ROS service request->
+   * @param response    The ROS service response->
    */
   void clearMapServiceCallback(const std::shared_ptr<std_srvs::srv::Empty::Request> request,
                                std::shared_ptr<std_srvs::srv::Empty::Response> response);
@@ -160,8 +160,8 @@ class ElevationMapping:  public rclcpp::Node {
    * not supplied, the entire map will be set in the intersection of both maps. The
    * provided map can be of different size and position than the map that will be altered.
    *
-   * @param request    The ROS service request.
-   * @param response   The ROS service response.
+   * @param request    The ROS service request->
+   * @param response   The ROS service response->
    */
   void maskedReplaceServiceCallback(const std::shared_ptr<grid_map_msgs::srv::SetGridMap::Request> request,
                                     std::shared_ptr<grid_map_msgs::srv::SetGridMap::Response> response);
@@ -169,8 +169,8 @@ class ElevationMapping:  public rclcpp::Node {
   /*!
    * ROS service callback function to save the grid map with all layers to a ROS bag file.
    *
-   * @param request   The ROS service request.
-   * @param response  The ROS service response.
+   * @param request   The ROS service request->
+   * @param response  The ROS service response->
    */
   void saveMapServiceCallback(const std::shared_ptr<grid_map_msgs::srv::ProcessFile::Request> request,
                               std::shared_ptr<grid_map_msgs::srv::ProcessFile::Response> response);
@@ -178,8 +178,8 @@ class ElevationMapping:  public rclcpp::Node {
   /*!
    * ROS service callback function to load the grid map with all layers from a ROS bag file.
    *
-   * @param request     The ROS service request.
-   * @param response    The ROS service response.
+   * @param request     The ROS service request->
+   * @param response    The ROS service response->
    */
   void loadMapServiceCallback(const std::shared_ptr<grid_map_msgs::srv::ProcessFile::Request> request,
                               std::shared_ptr<grid_map_msgs::srv::ProcessFile::Response> response);
@@ -187,8 +187,8 @@ class ElevationMapping:  public rclcpp::Node {
   /*!
    * ROS service callback function to reload parameters from the ros parameter server.
    *
-   * @param request     The ROS service request.
-   * @param response    The ROS service response.
+   * @param request     The ROS service request->
+   * @param response    The ROS service response->
    */
   void reloadParametersServiceCallback(const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
                                        std::shared_ptr<std_srvs::srv::Trigger::Response> response);
@@ -259,7 +259,7 @@ class ElevationMapping:  public rclcpp::Node {
   /*!
    * Stop the map update timer.
    */
-  void stopMapUpdateTimer();
+  void cancelMapUpdateTimer();
 
   /*!
    * Initializes a submap around the robot of the elevation map with a constant height.
@@ -293,15 +293,12 @@ class ElevationMapping:  public rclcpp::Node {
   rclcpp::Service<grid_map_msgs::srv::ProcessFile>::SharedPtr loadMapService_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reloadParametersService_;
 
-
-
-
   //! Cache for the robot pose messages.
   message_filters::Cache<geometry_msgs::msg::PoseWithCovarianceStamped> robotPoseCache_;
 
   //! TF listener and buffer.
-  tf2_ros::Buffer transformBuffer_;
-  tf2_ros::TransformListener transformListener_;
+  tf2_ros::Buffer::SharedPtr transformBuffer_;
+  std::shared_ptr<tf2_ros::TransformListener> transformListener_;
 
   struct Parameters {
     //! Size of the cache for the robot pose messages.
@@ -325,11 +322,11 @@ class ElevationMapping:  public rclcpp::Node {
     bool updatesEnabled_{true};
 
     //! Maximum time that the map will not be updated.
-    rclcpp::Duration maxNoUpdateDuration_;
+    rclcpp::Duration maxNoUpdateDuration_ = rclcpp::Duration::from_seconds(0.0);
 
     //! Time tolerance for updating the map with data before the last update.
     //! This is useful when having multiple sensors adding data to the map.
-    rclcpp::Duration timeTolerance_;
+    rclcpp::Duration timeTolerance_ = rclcpp::Duration::from_seconds(0.0);
 
     //! Duration for the publishing the fusing map.
     std::chrono::milliseconds fusedMapPublishTimerDuration_;

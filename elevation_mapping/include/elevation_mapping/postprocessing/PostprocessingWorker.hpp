@@ -29,7 +29,7 @@ class PostprocessingWorker {
  public:
   using GridMap = grid_map::GridMap;
 
-  explicit PostprocessingWorker(rclcpp::Node::SharePtr node);
+  explicit PostprocessingWorker(rclcpp::Node::SharedPtr node);
 
   /*! @name Accessors */
   ///@{
