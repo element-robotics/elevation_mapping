@@ -39,7 +39,7 @@ namespace elevation_mapping {
 
 ElevationMapping::ElevationMapping()
     : Node("elevation_mapping"),
-      inputSources_(shared_from_this()),
+      // inputSources_(shared_from_this()),
       map_(shared_from_this()),
       robotMotionMapUpdater_(shared_from_this()),
       receivedFirstMatchingPointcloudAndPose_(false) {
@@ -69,10 +69,16 @@ ElevationMapping::ElevationMapping()
 
 void ElevationMapping::setupSubscribers() {  // Handle deprecated point_cloud_topic and input_sources configuration.
   auto [parameters, parameterGuard]{parameters_.getDataToWrite()};
-  const bool configuredInputSources = inputSources_.configureFromRos("input_sources");
-  if (configuredInputSources) {
-    inputSources_.registerCallbacks<sensor_msgs::msg::PointCloud2>(make_pair("pointcloud", &ElevationMapping::pointCloudCallback));
-  }
+  // TODO: Fix inputSources for ROS2
+  // const bool configuredInputSources = inputSources_.configureFromRos("input_sources");
+  // if (configuredInputSources) {
+  //   inputSources_.registerCallbacks<sensor_msgs::msg::PointCloud2>(make_pair("pointcloud", &ElevationMapping::pointCloudCallback));
+  // }
+
+  pointCloudSubscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+      parameters.pointCloudTopic_, rclcpp::SensorDataQoS(), [&](const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+        pointCloudCallback(msg, true);
+      });
 
   if (!parameters.robotPoseTopic_.empty()) {
     rmw_qos_profile_t qos = rmw_qos_profile_sensor_data;
@@ -245,28 +251,28 @@ bool ElevationMapping::readParameters(bool reload) {
   parameters.targetFrameInitSubmap_ = node_->declare_parameter<std::string>("target_frame_init_submap", std::string("/footprint"));
 
   // // SensorProcessor parameters. Deprecated, use the sensorProcessor from within input sources instead!
-  // std::string sensorType = node_->declare_parameter<std::string>("sensor_processor/type", "structured_light");
+  std::string sensorType = node_->declare_parameter<std::string>("sensor_processor.type", "structured_light");
 
-  // SensorProcessorBase::GeneralParameters generalSensorProcessorConfig{node_->declare_parameter<std::string>("robot_base_frame_id", "/robot"),
-  //                                                                     parameters.mapFrameId_};
-  // if (sensorType == "structured_light") {
-  //   sensorProcessor_ = std::make_unique<StructuredLightSensorProcessor>(node_, generalSensorProcessorConfig);
-  // } else if (sensorType == "stereo") {
-  //   sensorProcessor_ = std::make_unique<StereoSensorProcessor>(node_, generalSensorProcessorConfig);
-  // } else if (sensorType == "laser") {
-  //   sensorProcessor_ = std::make_unique<LaserSensorProcessor>(node_, generalSensorProcessorConfig);
-  // } else if (sensorType == "perfect") {
-  //   sensorProcessor_ = std::make_unique<PerfectSensorProcessor>(node_, generalSensorProcessorConfig);
-  // } else {
-  //   RCLCPP_ERROR(node_->get_logger(), "The sensor type %s is not available.", sensorType.c_str());
+  SensorProcessorBase::GeneralParameters generalSensorProcessorConfig{node_->declare_parameter<std::string>("robot_base_frame_id", "/robot"),
+                                                                      parameters.mapFrameId_};
+  if (sensorType == "structured_light") {
+    sensorProcessor_ = std::make_unique<StructuredLightSensorProcessor>(node_, generalSensorProcessorConfig);
+  } else if (sensorType == "stereo") {
+    sensorProcessor_ = std::make_unique<StereoSensorProcessor>(node_, generalSensorProcessorConfig);
+  } else if (sensorType == "laser") {
+    sensorProcessor_ = std::make_unique<LaserSensorProcessor>(node_, generalSensorProcessorConfig);
+  } else if (sensorType == "perfect") {
+    sensorProcessor_ = std::make_unique<PerfectSensorProcessor>(node_, generalSensorProcessorConfig);
+  } else {
+    RCLCPP_ERROR(node_->get_logger(), "The sensor type %s is not available.", sensorType.c_str());
+  }
+
+  // if (!sensorProcessor_->readParameters()) {
+  //   return false;
   // }
-  // TODO: modify these functions to use node based parameters
-  if (!sensorProcessor_->readParameters()) {
-    return false;
-  }
-  if (!robotMotionMapUpdater_.readParameters()) {
-    return false;
-  }
+  // if (!robotMotionMapUpdater_.readParameters()) {
+  //   return false;
+  // }
 
   return true;
 }
@@ -279,8 +285,7 @@ bool ElevationMapping::initialize() {
   return true;
 }
 
-void ElevationMapping::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr pointCloudMsg, bool publishPointCloud,
-                                          const SensorProcessorBase::Ptr sensorProcessor_) {
+void ElevationMapping::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr pointCloudMsg, bool publishPointCloud) {
   const Parameters parameters{parameters_.getData()};
   RCLCPP_DEBUG(this->get_logger(), "Processing data from: %s", pointCloudMsg->header.frame_id.c_str());
   if (!parameters.updatesEnabled_) {

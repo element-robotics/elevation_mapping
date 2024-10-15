@@ -38,7 +38,7 @@
 #include "elevation_mapping/RobotMotionMapUpdater.hpp"
 #include "elevation_mapping/ThreadSafeDataWrapper.hpp"
 #include "elevation_mapping/WeightedEmpiricalCumulativeDistributionFunction.hpp"
-#include "elevation_mapping/input_sources/InputSourceManager.hpp"
+// #include "elevation_mapping/input_sources/InputSourceManager.hpp"
 #include "elevation_mapping/sensor_processors/SensorProcessorBase.hpp"
 
 namespace elevation_mapping {
@@ -58,10 +58,10 @@ class ElevationMapping:  public rclcpp::Node {
    */
   explicit ElevationMapping();
 
-  /*!
-   * Destructor.
-   */
-  virtual ~ElevationMapping();
+  // /*!
+  //  * Destructor.
+  //  */
+  // virtual ~ElevationMapping();
 
   /*!
    * Callback function for new data to be added to the elevation map.
@@ -70,8 +70,7 @@ class ElevationMapping:  public rclcpp::Node {
    * @param publishPointCloud If true, publishes the pointcloud after updating the map.
    * @param sensorProcessor_ The sensorProcessor to use in this callback.
    */
-  void pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr pointCloudMsg, bool publishPointCloud,
-                          const SensorProcessorBase::Ptr sensorProcessor_);
+  void pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr pointCloudMsg, bool publishPointCloud);
 
   /*!
    * Callback function for the update timer. Forces an update of the map from
@@ -276,7 +275,7 @@ class ElevationMapping:  public rclcpp::Node {
 
  protected:
   //! Input sources.
-  InputSourceManager inputSources_;
+  // InputSourceManager inputSources_;
   //! ROS subscribers.
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointCloudSubscriber_;  //!< Deprecated, use input_source instead.
   message_filters::Subscriber<geometry_msgs::msg::PoseWithCovarianceStamped> robotPoseSubscriber_;

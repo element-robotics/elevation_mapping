@@ -34,7 +34,7 @@ class PerfectSensorProcessor : public SensorProcessorBase {
    * Reads and verifies the parameters.
    * @return true if successful.
    */
-  bool readParameters() override;
+//   bool readParameters() override;
 
   /*!
    * Computes the elevation map height variances for each point in a point cloud with the

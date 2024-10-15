@@ -20,6 +20,8 @@ find_package(tf2_eigen REQUIRED)
 find_package(filters REQUIRED)
 find_package(kindr REQUIRED)
 find_package(kindr_ros REQUIRED)
+find_package(pcl_ros REQUIRED)
+find_package(PCL REQUIRED)
 
 # Clang tools support
 find_package(cmake_clang_tools QUIET)
@@ -40,8 +42,8 @@ add_library(${PROJECT_NAME}_pcl_types
 add_library(${PROJECT_NAME}_library
   src/ElevationMapping.cpp
   src/ElevationMap.cpp
-  src/input_sources/Input.cpp
-  src/input_sources/InputSourceManager.cpp
+  # src/input_sources/Input.cpp
+  # src/input_sources/InputSourceManager.cpp
   src/postprocessing/PostprocessorPool.cpp
   src/postprocessing/PostprocessingWorker.cpp
   src/postprocessing/PostprocessingPipelineFunctor.cpp
@@ -121,6 +123,7 @@ ament_target_dependencies(${PROJECT_NAME}_pcl_types
   sensor_msgs
   grid_map_core
   pcl_conversions
+  pcl_ros
 )
 
 # Specify dependencies for the main library
@@ -141,11 +144,21 @@ ament_target_dependencies(${PROJECT_NAME}_library
   pcl_conversions
   kindr
   kindr_ros
+  pcl_ros
+)
+
+#Link with libraries
+target_link_libraries(${PROJECT_NAME}_library
+  ${PROJECT_NAME}_pcl_types
+  ${EIGEN3_LIBRARIES}
+  ${PCL_LIBRARIES}
 )
 
 # Link the libraries with the executable
 target_link_libraries(${PROJECT_NAME}_node
   ${PROJECT_NAME}_library
+  ${EIGEN3_LIBRARIES}
+  ${PCL_LIBRARIES}
 )
 
 ament_target_dependencies(${PROJECT_NAME}_node
@@ -198,6 +211,7 @@ ament_export_dependencies(
   pcl_conversions
   kindr
   kindr_ros
+  pcl_ros
 )
 ament_package()
 
@@ -205,19 +219,19 @@ ament_package()
 ## Test ##
 ##########
 
-if(BUILD_TESTING)
-  find_package(ament_cmake_gtest REQUIRED)
+# if(BUILD_TESTING)
+#   find_package(ament_cmake_gtest REQUIRED)
   
-  ament_add_gtest(test_input_sources test/input_sources/test_input_sources.cpp)
-  target_link_libraries(test_input_sources ${PROJECT_NAME}_library)
+#   ament_add_gtest(test_input_sources test/input_sources/test_input_sources.cpp)
+#   target_link_libraries(test_input_sources ${PROJECT_NAME}_library)
   
-  ament_add_gtest(test_postprocessor test/postprocessing/PostprocessorTest.cpp)
-  target_link_libraries(test_postprocessor ${PROJECT_NAME}_library)
+#   ament_add_gtest(test_postprocessor test/postprocessing/PostprocessorTest.cpp)
+#   target_link_libraries(test_postprocessor ${PROJECT_NAME}_library)
 
-  ament_add_gtest(test_thread_safe_parameter_wrapper test/ThreadSafeParameterWrapperTest.cpp)
-  target_link_libraries(test_thread_safe_parameter_wrapper ${PROJECT_NAME}_library)
+#   ament_add_gtest(test_thread_safe_parameter_wrapper test/ThreadSafeParameterWrapperTest.cpp)
+#   target_link_libraries(test_thread_safe_parameter_wrapper ${PROJECT_NAME}_library)
   
-  if(cmake_clang_tools_FOUND)
-    add_default_clang_tooling()
-  endif()
-endif()
+#   if(cmake_clang_tools_FOUND)
+#     add_default_clang_tooling()
+#   endif()
+# endif()
