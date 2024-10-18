@@ -12,7 +12,7 @@
     <arg name="world_name" value="$(find-pkg-share turtlebot3_gazebo)/worlds/turtlebot3_house.world"/>
     <arg name="paused" value="false"/> <!--S tart Gazebo in a paused state-->
     <arg name="use_sim_time" value="true"/> <!-- Tells ROS nodes asking for time to get the Gazebo-published simulation time, published over the ROS topic /clock-->
-    <arg name="gui" value="false"/> <!-- Launch the user interface window of Gazebo-->
+    <arg name="gui" value="true"/> <!-- Launch the user interface window of Gazebo-->
     <arg name="headless" value="false"/> <!-- Enable gazebo state log recording-->
     <arg name="debug" value="false"/> <!-- Start gzserver (Gazebo Server) in debug mode using gdb-->
     <arg name="verbose" value="false"/> <!-- Start gazebo in verbose mode-->

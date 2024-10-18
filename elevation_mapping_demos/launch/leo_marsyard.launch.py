@@ -58,4 +58,5 @@ def generate_launch_description():
 
     return LaunchDescription([
         marsyard_launch,
+        pose_with_cov_relay,
     ])

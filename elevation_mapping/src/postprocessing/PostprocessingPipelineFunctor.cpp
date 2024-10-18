@@ -22,9 +22,7 @@ PostprocessingPipelineFunctor::PostprocessingPipelineFunctor(rclcpp::Node::Share
   rclcpp::QoS qos(rclcpp::KeepLast(1));
   qos.transient_local(); // Enable latching equivalent
   publisher_ = node_->create_publisher<grid_map_msgs::msg::GridMap>(parameters.outputTopic_, qos);
-
-  // Setup filter chain.
-  if (!node_->has_parameter(parameters.filterChainParametersName_) ||
+  if (
       !filterChain_.configure(parameters.filterChainParametersName_, node_->get_node_logging_interface(), node_->get_node_parameters_interface())) {
     RCLCPP_WARN(node_->get_logger(), "Could not configure the filter chain. Will publish the raw elevation map without postprocessing!");
     return;

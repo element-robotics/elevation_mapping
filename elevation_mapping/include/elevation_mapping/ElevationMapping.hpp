@@ -191,6 +191,11 @@ class ElevationMapping:  public rclcpp::Node {
    */
   void reloadParametersServiceCallback(const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
                                        std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+  
+  /*!
+   * configures map, timers, callback groups, services and topics
+   */
+  void configure();
 
  private:
   /*!
@@ -363,14 +368,14 @@ class ElevationMapping:  public rclcpp::Node {
   ThreadSafeDataWrapper<Parameters> parameters_;
 
   //! Elevation map.
-  ElevationMap map_;
+  std::shared_ptr<ElevationMap> map_;
 
   //! Sensor processors. Deprecated use the one from input sources instead.
   //TODO: check implementation of this, should it be shared_ptr/unique_ptr?
   SensorProcessorBase::Ptr sensorProcessor_;
 
   //! Robot motion elevation map updater.
-  RobotMotionMapUpdater robotMotionMapUpdater_;
+  std::shared_ptr<RobotMotionMapUpdater> robotMotionMapUpdater_;
 
   //! Timer for the robot motion update.
   rclcpp::TimerBase::SharedPtr mapUpdateTimer_;
