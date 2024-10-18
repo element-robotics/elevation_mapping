@@ -9,24 +9,25 @@
   <url type="website">http://github.com/anybotics/elevation_mapping</url>
   <url type="bugtracker">http://github.com/anybotics/elevation_mapping/issues</url>
   <author email="pfankhauser@anybotics.com">Péter Fankhauser</author>
-  <buildtool_depend>ament_cmake</buildtool_depend>
+
   <depend>elevation_mapping</depend>
   <depend>grid_map_rviz_plugin</depend>
-  <depend>rviz</depend>
+  <depend>rviz2</depend>
+  <depend>gazebo_ros</depend>
+  <depend>gridmap_visualization</depend>
+  <depend>pcl_ros</depend>
+  <depend>robot_state_publisher</depend>
+  <depend>tf2_ros</depend>
+  <depend>turtlebot3_gazebo</depend>
+  <depend>xacro</depend>
 
-  <exec_depend>nodelet</exec_depend>
-  <exec_depend>gazebo_ros</exec_depend>
-  <exec_depend>grid_map_visualization</exec_depend>
-  <exec_depend>pcl_ros</exec_depend>
-  <exec_depend>robot_state_publisher</exec_depend>
-  <exec_depend>tf2_ros</exec_depend>
-  <exec_depend>turtlebot3_gazebo</exec_depend>
-  <exec_depend>xacro</exec_depend>
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
 
-<!--   <test_depend>cmake_code_coverage</test_depend> -->
-  <test_depend>gtest</test_depend>
-  <test_depend>roslaunch</test_depend>
   <export>
-    <build_type>ament_cmake</build_type>
+    <build_type>ament_python</build_type>
   </export>
 </package>
+
