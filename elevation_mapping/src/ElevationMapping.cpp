@@ -40,7 +40,8 @@ namespace elevation_mapping {
 ElevationMapping::ElevationMapping()
     : Node("elevation_mapping"),
       // inputSources_(shared_from_this()),
-      receivedFirstMatchingPointcloudAndPose_(false) {
+      receivedFirstMatchingPointcloudAndPose_(false),
+      lastPointCloudUpdateTime_(0, 0, RCL_ROS_TIME) {
 #ifndef NDEBUG
   // Print a warning if built in debug.
   RCLCPP_WARN(this->get_logger(), "CMake Build Type is 'Debug'. Change to 'Release' for better performance.");
@@ -125,19 +126,19 @@ void ElevationMapping::setupServices() {
       rmw_qos_profile_services_default,
       fusionServiceCallbackGroup_);
 
-  clearMapService_ = node_->create_service<std_srvs::srv::Empty>(
+  clearMapService_ = this->create_service<std_srvs::srv::Empty>(
       "clear_map", std::bind(&ElevationMapping::clearMapServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
-  enableUpdatesService_ = node_->create_service<std_srvs::srv::Empty>(
+  enableUpdatesService_ = this->create_service<std_srvs::srv::Empty>(
       "enable_updates", std::bind(&ElevationMapping::enableUpdatesServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
-  disableUpdatesService_ = node_->create_service<std_srvs::srv::Empty>(
+  disableUpdatesService_ = this->create_service<std_srvs::srv::Empty>(
       "disable_updates", std::bind(&ElevationMapping::disableUpdatesServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
-  maskedReplaceService_ = node_->create_service<grid_map_msgs::srv::SetGridMap>(
+  maskedReplaceService_ = this->create_service<grid_map_msgs::srv::SetGridMap>(
       "masked_replace", std::bind(&ElevationMapping::maskedReplaceServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
-  saveMapService_ = node_->create_service<grid_map_msgs::srv::ProcessFile>(
+  saveMapService_ = this->create_service<grid_map_msgs::srv::ProcessFile>(
       "save_map", std::bind(&ElevationMapping::saveMapServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
-  loadMapService_ = node_->create_service<grid_map_msgs::srv::ProcessFile>(
+  loadMapService_ = this->create_service<grid_map_msgs::srv::ProcessFile>(
       "load_map", std::bind(&ElevationMapping::loadMapServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
-  reloadParametersService_ = node_->create_service<std_srvs::srv::Trigger>(
+  reloadParametersService_ = this->create_service<std_srvs::srv::Trigger>(
       "reload_parameters", std::bind(&ElevationMapping::reloadParametersServiceCallback, this, std::placeholders::_1, std::placeholders::_2));
 }
 
@@ -145,7 +146,7 @@ void ElevationMapping::setupTimers() {
   
   const Parameters parameters{parameters_.getData()};
   ElevationMap::Parameters mapParameters{map_->parameters_.getData()};
-  mapUpdateTimer_ = node_->create_wall_timer(parameters.maxNoUpdateDuration_.to_chrono<std::chrono::milliseconds>(), 
+  mapUpdateTimer_ = this->create_wall_timer(parameters.maxNoUpdateDuration_.to_chrono<std::chrono::milliseconds>(), 
                                              std::bind(&ElevationMapping::mapUpdateTimerCallback, this));
 
   // TODO set up for ROS2 with callback groups and executors.
@@ -173,24 +174,24 @@ bool ElevationMapping::readParameters(bool reload) {
   auto [mapParameters, mapParametersGuard] = map_->parameters_.getDataToWrite();
   RCLCPP_INFO(this->get_logger(), "Reading map parameters ...");
 
-  parameters.pointCloudTopic_ = node_->declare_parameter<std::string>("point_cloud_topic", "/points");
-  parameters.robotPoseTopic_ = node_->declare_parameter<std::string>("robot_pose_with_covariance_topic", "/pose");
-  parameters.trackPointFrameId_ = node_->declare_parameter<std::string>("track_point_frame_id", "/robot");
-  parameters.trackPoint_.x() = node_->declare_parameter<double>("track_point_x", 0.0);
-  parameters.trackPoint_.y() = node_->declare_parameter<double>("track_point_y", 0.0);
-  parameters.trackPoint_.z() = node_->declare_parameter<double>("track_point_z", 0.0);
+  parameters.pointCloudTopic_ = this->declare_parameter<std::string>("point_cloud_topic", "/points");
+  parameters.robotPoseTopic_ = this->declare_parameter<std::string>("robot_pose_with_covariance_topic", "/pose");
+  parameters.trackPointFrameId_ = this->declare_parameter<std::string>("track_point_frame_id", "/robot");
+  parameters.trackPoint_.x() = this->declare_parameter<double>("track_point_x", 0.0);
+  parameters.trackPoint_.y() = this->declare_parameter<double>("track_point_y", 0.0);
+  parameters.trackPoint_.z() = this->declare_parameter<double>("track_point_z", 0.0);
 
-  parameters.robotPoseCacheSize_ = node_->declare_parameter<int>("robot_pose_cache_size", 200);
+  parameters.robotPoseCacheSize_ = this->declare_parameter<int>("robot_pose_cache_size", 200);
   
   // TODO: Add ROS2 version of this
   // ROS_ASSERT(parameters.robotPoseCacheSize_ >= 0);
   rcpputils::assert_true(parameters.robotPoseCacheSize_ >= 0);
 
   double minUpdateRate{2.0};
-  minUpdateRate = node_->declare_parameter<double>("min_update_rate", minUpdateRate);
+  minUpdateRate = this->declare_parameter<double>("min_update_rate", minUpdateRate);
   if (minUpdateRate == 0.0) {
     parameters.maxNoUpdateDuration_ = rclcpp::Duration::from_seconds(0.0);
-    RCLCPP_WARN(node_->get_logger(), "Rate for publishing the map is zero.");
+    RCLCPP_WARN(this->get_logger(), "Rate for publishing the map is zero.");
   } else {
     parameters.maxNoUpdateDuration_ = rclcpp::Duration::from_seconds(1.0 / minUpdateRate);
   }
@@ -198,14 +199,14 @@ bool ElevationMapping::readParameters(bool reload) {
   rcpputils::assert_true(parameters.maxNoUpdateDuration_ > rclcpp::Duration::from_seconds(0.0));
 
   double timeTolerance{0.0};
-  timeTolerance = node_->declare_parameter<double>("time_tolerance", timeTolerance);
+  timeTolerance = this->declare_parameter<double>("time_tolerance", timeTolerance);
   parameters.timeTolerance_ = rclcpp::Duration::from_seconds(timeTolerance);
 
   double fusedMapPublishingRate{1.0};
-  fusedMapPublishingRate = node_->declare_parameter<double>("fused_map_publishing_rate", fusedMapPublishingRate);
+  fusedMapPublishingRate = this->declare_parameter<double>("fused_map_publishing_rate", fusedMapPublishingRate);
   if (fusedMapPublishingRate == 0.0) {
     parameters.fusedMapPublishTimerDuration_ = std::chrono::milliseconds(0);
-    RCLCPP_WARN(node_->get_logger(), 
+    RCLCPP_WARN(this->get_logger(), 
         "Rate for publishing the fused map is zero. The fused elevation map will not be published unless the service `triggerFusion` is "
         "called.");
   } else if (std::isinf(fusedMapPublishingRate)) {
@@ -216,7 +217,7 @@ bool ElevationMapping::readParameters(bool reload) {
   }
 
   double visibilityCleanupRate{1.0};
-  visibilityCleanupRate = node_->declare_parameter<double>("visibility_cleanup_rate", visibilityCleanupRate);
+  visibilityCleanupRate = this->declare_parameter<double>("visibility_cleanup_rate", visibilityCleanupRate);
   if (visibilityCleanupRate == 0.0) {
     parameters.visibilityCleanupTimerDuration_ = std::chrono::milliseconds(0);
     RCLCPP_WARN(this->get_logger(), "Rate for visibility cleanup is zero and therefore disabled.");
@@ -226,16 +227,16 @@ bool ElevationMapping::readParameters(bool reload) {
   }
 
   // ElevationMap parameters. TODO Move this to the elevation map class.
-  parameters.mapFrameId_ = node_->declare_parameter<std::string>("map_frame_id", "/map");
+  parameters.mapFrameId_ = this->declare_parameter<std::string>("map_frame_id", "/map");
 
   grid_map::Length length;
   grid_map::Position position;
   double resolution{0.01};
-  length(0) = node_->declare_parameter<double>("length_in_x", 1.5);
-  length(1) = node_->declare_parameter<double>("length_in_y", 1.5);
-  position.x() = node_->declare_parameter<double>("position_x", 0.0);
-  position.y() = node_->declare_parameter<double>("position_y", 0.0);
-  resolution = node_->declare_parameter<double>("resolution", resolution);
+  length(0) = this->declare_parameter<double>("length_in_x", 1.5);
+  length(1) = this->declare_parameter<double>("length_in_y", 1.5);
+  position.x() = this->declare_parameter<double>("position_x", 0.0);
+  position.y() = this->declare_parameter<double>("position_y", 0.0);
+  resolution = this->declare_parameter<double>("resolution", resolution);
 
   // TODO: Use set_parameter_callback instead of this
   if (!reload) {
@@ -243,43 +244,43 @@ bool ElevationMapping::readParameters(bool reload) {
     map_->setGeometry(length, resolution, position);
   }
 
-  mapParameters.minVariance_ = node_->declare_parameter<double>("min_variance", pow(0.003, 2));
-  mapParameters.maxVariance_ = node_->declare_parameter<double>("max_variance", pow(0.03, 2));
-  mapParameters.mahalanobisDistanceThreshold_ = node_->declare_parameter<double>("mahalanobis_distance_threshold", 2.5);
-  mapParameters.multiHeightNoise_ = node_->declare_parameter<double>("multi_height_noise", pow(0.003, 2));
-  mapParameters.minHorizontalVariance_ = node_->declare_parameter<double>("min_horizontal_variance", pow(resolution / 2.0, 2));  // two-sigma
-  mapParameters.maxHorizontalVariance_ = node_->declare_parameter<double>("max_horizontal_variance", 0.5);
-  mapParameters.underlyingMapTopic_ = node_->declare_parameter<std::string>("underlying_map_topic", std::string());
-  mapParameters.enableVisibilityCleanup_ = node_->declare_parameter<bool>("enable_visibility_cleanup", true);
-  mapParameters.enableContinuousCleanup_ = node_->declare_parameter<bool>("enable_continuous_cleanup", false);
-  mapParameters.scanningDuration_ = node_->declare_parameter<double>("scanning_duration", 1.0);
-  mapParameters.increaseHeightAlpha_ = node_->declare_parameter<double>("increase_height_alpha", 0.0);
-  parameters.maskedReplaceServiceMaskLayerName_ = node_->declare_parameter<std::string>("masked_replace_service_mask_layer_name", std::string("mask"));
+  mapParameters.minVariance_ = this->declare_parameter<double>("min_variance", pow(0.003, 2));
+  mapParameters.maxVariance_ = this->declare_parameter<double>("max_variance", pow(0.03, 2));
+  mapParameters.mahalanobisDistanceThreshold_ = this->declare_parameter<double>("mahalanobis_distance_threshold", 2.5);
+  mapParameters.multiHeightNoise_ = this->declare_parameter<double>("multi_height_noise", pow(0.003, 2));
+  mapParameters.minHorizontalVariance_ = this->declare_parameter<double>("min_horizontal_variance", pow(resolution / 2.0, 2));  // two-sigma
+  mapParameters.maxHorizontalVariance_ = this->declare_parameter<double>("max_horizontal_variance", 0.5);
+  mapParameters.underlyingMapTopic_ = this->declare_parameter<std::string>("underlying_map_topic", std::string());
+  mapParameters.enableVisibilityCleanup_ = this->declare_parameter<bool>("enable_visibility_cleanup", true);
+  mapParameters.enableContinuousCleanup_ = this->declare_parameter<bool>("enable_continuous_cleanup", false);
+  mapParameters.scanningDuration_ = this->declare_parameter<double>("scanning_duration", 1.0);
+  mapParameters.increaseHeightAlpha_ = this->declare_parameter<double>("increase_height_alpha", 0.0);
+  parameters.maskedReplaceServiceMaskLayerName_ = this->declare_parameter<std::string>("masked_replace_service_mask_layer_name", std::string("mask"));
 
   // Settings for initializing elevation map
-  parameters.initializeElevationMap_ = node_->declare_parameter<bool>("initialize_elevation_map", false);
-  parameters.initializationMethod_ = node_->declare_parameter<int>("initialization_method", 0);
-  parameters.lengthInXInitSubmap_ = node_->declare_parameter<double>("length_in_x_init_submap", 1.2);
-  parameters.lengthInYInitSubmap_ = node_->declare_parameter<double>("length_in_y_init_submap", 1.8);
-  parameters.initSubmapHeightOffset_ = node_->declare_parameter<double>("init_submap_height_offset", 0.0);
-  parameters.initSubmapVariance_ = node_->declare_parameter<double>("init_submap_variance", 0.01);
-  parameters.targetFrameInitSubmap_ = node_->declare_parameter<std::string>("target_frame_init_submap", std::string("/footprint"));
+  parameters.initializeElevationMap_ = this->declare_parameter<bool>("initialize_elevation_map", false);
+  parameters.initializationMethod_ = this->declare_parameter<int>("initialization_method", 0);
+  parameters.lengthInXInitSubmap_ = this->declare_parameter<double>("length_in_x_init_submap", 1.2);
+  parameters.lengthInYInitSubmap_ = this->declare_parameter<double>("length_in_y_init_submap", 1.8);
+  parameters.initSubmapHeightOffset_ = this->declare_parameter<double>("init_submap_height_offset", 0.0);
+  parameters.initSubmapVariance_ = this->declare_parameter<double>("init_submap_variance", 0.01);
+  parameters.targetFrameInitSubmap_ = this->declare_parameter<std::string>("target_frame_init_submap", std::string("/footprint"));
 
   // // SensorProcessor parameters. Deprecated, use the sensorProcessor from within input sources instead!
-  std::string sensorType = node_->declare_parameter<std::string>("sensor_processor.type", "structured_light");
+  std::string sensorType = this->declare_parameter<std::string>("sensor_processor.type", "structured_light");
 
-  SensorProcessorBase::GeneralParameters generalSensorProcessorConfig{node_->declare_parameter<std::string>("robot_base_frame_id", "/robot"),
+  SensorProcessorBase::GeneralParameters generalSensorProcessorConfig{this->declare_parameter<std::string>("robot_base_frame_id", "/robot"),
                                                                       parameters.mapFrameId_};
   if (sensorType == "structured_light") {
-    sensorProcessor_ = std::make_unique<StructuredLightSensorProcessor>(node_, generalSensorProcessorConfig);
+    sensorProcessor_ = std::make_unique<StructuredLightSensorProcessor>(shared_from_this(), generalSensorProcessorConfig);
   } else if (sensorType == "stereo") {
-    sensorProcessor_ = std::make_unique<StereoSensorProcessor>(node_, generalSensorProcessorConfig);
+    sensorProcessor_ = std::make_unique<StereoSensorProcessor>(shared_from_this(), generalSensorProcessorConfig);
   } else if (sensorType == "laser") {
-    sensorProcessor_ = std::make_unique<LaserSensorProcessor>(node_, generalSensorProcessorConfig);
+    sensorProcessor_ = std::make_unique<LaserSensorProcessor>(shared_from_this(), generalSensorProcessorConfig);
   } else if (sensorType == "perfect") {
-    sensorProcessor_ = std::make_unique<PerfectSensorProcessor>(node_, generalSensorProcessorConfig);
+    sensorProcessor_ = std::make_unique<PerfectSensorProcessor>(shared_from_this(), generalSensorProcessorConfig);
   } else {
-    RCLCPP_ERROR(node_->get_logger(), "The sensor type %s is not available.", sensorType.c_str());
+    RCLCPP_ERROR(this->get_logger(), "The sensor type %s is not available.", sensorType.c_str());
   }
 
   // if (!sensorProcessor_->readParameters()) {
@@ -306,7 +307,7 @@ void ElevationMapping::pointCloudCallback(const sensor_msgs::msg::PointCloud2::S
   if (!parameters.updatesEnabled_) {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *(this->get_clock()), 10000, "Updating of elevation map is disabled. (Warning message is throttled, 10s.)");
     if (publishPointCloud) {
-      map_->setTimestamp(node_->now());
+      map_->setTimestamp(this->now());
       map_->postprocessAndPublishRawElevationMap();
     }
     return;
@@ -335,7 +336,7 @@ void ElevationMapping::pointCloudCallback(const sensor_msgs::msg::PointCloud2::S
 
   PointCloudType::Ptr pointCloud(new PointCloudType);
   pcl::fromPCLPointCloud2(pcl_pc, *pointCloud);
-  lastPointCloudUpdateTime_ = rclcpp::Time(1000 * pointCloud->header.stamp);
+  lastPointCloudUpdateTime_ = rclcpp::Time(1000 * pointCloud->header.stamp, RCL_ROS_TIME);
 
   RCLCPP_DEBUG(this->get_logger(), "ElevationMap received a point cloud (%i points) for elevation mapping.", static_cast<int>(pointCloud->size()));
 
@@ -421,7 +422,9 @@ void ElevationMapping::mapUpdateTimerCallback() {
     return;
   }
 
-  auto time = this->now();
+  rclcpp::Time time = this->now();
+  RCLCPP_DEBUG(this->get_logger(), "Now time clock type: %d", time.get_clock_type());
+  RCLCPP_DEBUG(this->get_logger(), "lastPointCloudUpdateTime_ time clock type: %d", lastPointCloudUpdateTime_.get_clock_type());
   if ((lastPointCloudUpdateTime_ - time) <=
       parameters.maxNoUpdateDuration_) {  // there were updates from sensordata, no need to force an update.
     return;
@@ -526,7 +529,7 @@ bool ElevationMapping::updateMapLocation() {
 
   geometry_msgs::msg::PointStamped trackPoint;
   trackPoint.header.frame_id = parameters.trackPointFrameId_;
-  trackPoint.header.stamp = rclcpp::Time(0);
+  trackPoint.header.stamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
   kindr_ros::convertToRosGeometryMsg(parameters.trackPoint_, trackPoint.point);
   geometry_msgs::msg::PointStamped trackPointTransformed;
 
@@ -621,7 +624,7 @@ bool ElevationMapping::initializeElevationMap() {
 
       // Listen to transform between mapFrameId_ and targetFrameInitSubmap_ and use z value for initialization
       try {
-        transform_msg = transformBuffer_->lookupTransform(parameters.mapFrameId_, parameters.targetFrameInitSubmap_, rclcpp::Time(0), rclcpp::Duration::from_seconds(5.0));
+        transform_msg = transformBuffer_->lookupTransform(parameters.mapFrameId_, parameters.targetFrameInitSubmap_, rclcpp::Time(0, 0, RCL_ROS_TIME), rclcpp::Duration::from_seconds(5.0));
         tf2::fromMsg(transform_msg, transform);
 
         RCLCPP_DEBUG(this->get_logger(), "Initializing with x: %f y: %f z: %f", 
@@ -710,9 +713,9 @@ void ElevationMapping::saveMapServiceCallback(const std::shared_ptr<grid_map_msg
   RCLCPP_INFO(this->get_logger(), "Saving map to file.");
   boost::recursive_mutex::scoped_lock scopedLock(map_->getFusedDataMutex());
   map_->fuseAll();
-  std::string topic = std::string(node_->get_namespace()) + "/elevation_map";
+  std::string topic = std::string(this->get_namespace()) + "/elevation_map";
   if (!request->topic_name.empty()) {
-    topic = std::string(node_->get_namespace()) + "/" + request->topic_name;
+    topic = std::string(this->get_namespace()) + "/" + request->topic_name;
   }
   response->success = static_cast<unsigned char>(grid_map::GridMapRosConverter::saveToBag(map_->getFusedGridMap(), request->file_path, topic));
   response->success = static_cast<unsigned char>(
@@ -726,7 +729,7 @@ void ElevationMapping::loadMapServiceCallback(std::shared_ptr<grid_map_msgs::srv
   boost::recursive_mutex::scoped_lock scopedLockFused(map_->getFusedDataMutex());
   boost::recursive_mutex::scoped_lock scopedLockRaw(map_->getRawDataMutex());
 
-  std::string topic = node_->get_namespace();
+  std::string topic = this->get_namespace();
   if (!request->topic_name.empty()) {
     topic += "/" + request->topic_name;
   } else {
@@ -763,7 +766,9 @@ void ElevationMapping::reloadParametersServiceCallback(const std::shared_ptr<std
 void ElevationMapping::resetMapUpdateTimer() {
   const Parameters parameters{parameters_.getData()};
   mapUpdateTimer_->cancel();
-  rclcpp::Duration periodSinceLastUpdate = this->now() - map_->getTimeOfLastUpdate();
+  rclcpp::Time currentTime = this->now();
+  rclcpp::Time lastUpdateTime = map_->getTimeOfLastUpdate();
+  rclcpp::Duration periodSinceLastUpdate = currentTime - lastUpdateTime;
   if (periodSinceLastUpdate > parameters.maxNoUpdateDuration_) {
     periodSinceLastUpdate = rclcpp::Duration::from_seconds(0.0);
   }

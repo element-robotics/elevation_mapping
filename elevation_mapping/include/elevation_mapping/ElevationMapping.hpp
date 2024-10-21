@@ -275,9 +275,6 @@ class ElevationMapping:  public rclcpp::Node {
    */
   bool isFusingEnabled();
 
-  //! ROS node.
-  rclcpp::Node::SharedPtr node_;
-
  protected:
   //! Input sources.
   // InputSourceManager inputSources_;

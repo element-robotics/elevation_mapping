@@ -54,6 +54,7 @@ ElevationMap::ElevationMap(rclcpp::Node::SharedPtr node)
   visibilityCleanupMapPublisher_ = node_->create_publisher<grid_map_msgs::msg::GridMap>("visibility_cleanup_map", 1);
 
   initialTime_ = node_->now();
+  this->setTimestamp(initialTime_);
 }
 
 ElevationMap::~ElevationMap() = default;
@@ -608,12 +609,12 @@ void ElevationMap::setFusedGridMap(const grid_map::GridMap& map) {
 
 rclcpp::Time ElevationMap::getTimeOfLastUpdate() {
   // TODO: Why dont we lock the rawMapMutex here?
-  return rclcpp::Time(rawMap_.getTimestamp());
+  return rclcpp::Time(rawMap_.getTimestamp(), RCL_ROS_TIME);
 }
 
 rclcpp::Time ElevationMap::getTimeOfLastFusion() {
   boost::recursive_mutex::scoped_lock scopedLock(fusedMapMutex_);
-  return rclcpp::Time(fusedMap_.getTimestamp());
+  return rclcpp::Time(fusedMap_.getTimestamp(), RCL_ROS_TIME);
 }
 
 const kindr::HomTransformQuatD& ElevationMap::getPose() {
