@@ -115,6 +115,7 @@ bool StructuredLightSensorProcessor::filterPointCloudSensorType(const PointCloud
   // cutoff points with z values
   passThroughFilter.setInputCloud(pointCloud);
   passThroughFilter.setFilterFieldName("z");
+  // TODO: FIX OUT OF RANGE ERROR
   passThroughFilter.setFilterLimits(parameters.sensorParameters_.at("cutoff_min_depth"),
                                     parameters.sensorParameters_.at("cutoff_max_depth"));
   passThroughFilter.filter(tempPointCloud);

@@ -59,7 +59,7 @@ void PostprocessingPipelineFunctor::publish(const GridMap& gridMap) const {
   // Publish filtered output grid map.
   auto outputMessage = grid_map::GridMapRosConverter::toMessage(gridMap);
   publisher_->publish(std::move(outputMessage));
-  RCLCPP_DEBUG(node_->get_logger(), "Elevation map raw has been published.");
+  RCLCPP_INFO(node_->get_logger(), "Elevation map raw has been published.");
 }
 
 bool PostprocessingPipelineFunctor::hasSubscribers() const {
