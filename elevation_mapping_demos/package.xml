@@ -13,13 +13,16 @@
   <depend>elevation_mapping</depend>
   <depend>grid_map_rviz_plugin</depend>
   <depend>rviz2</depend>
-  <depend>gazebo_ros</depend>
-  <depend>gridmap_visualization</depend>
+  <depend>ros_gz</depend>
+  <depend>grid_map_visualization</depend>
   <depend>pcl_ros</depend>
   <depend>robot_state_publisher</depend>
   <depend>tf2_ros</depend>
-  <depend>turtlebot3_gazebo</depend>
+  <depend>nav2_minimal_tb4_sim</depend>
   <depend>xacro</depend>
+
+  <depend>leo_simulator</depend>
+  <depend>depthai_descriptions</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

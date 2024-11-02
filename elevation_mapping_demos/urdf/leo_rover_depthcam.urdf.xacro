@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="leo_with_depthcamera">
+
+  <!-- Include the base Leo Rover description -->
+  <xacro:arg name="fixed" default="false"/>
+  <xacro:arg name="robot_ns" default=""/>
+  <xacro:arg name="mecanum_wheels" default="false"/>
+
+  <xacro:include filename="$(find leo_description)/urdf/macros.xacro"/>
+
+  <xacro:leo_sim robot_ns="$(arg robot_ns)"
+                 fixed="$(arg fixed)"
+                 mecanum_wheels="$(arg mecanum_wheels)"/>
+  <!-- Odometry plugin -->
+    <gazebo>
+      <plugin name="gz::sim::systems::OdometryPublisher" filename="gz-sim-odometry-publisher-system">
+        <odom_publish_frequency>10</odom_publish_frequency>
+        <odom_frame>odom</odom_frame>
+        <robot_base_frame>base_footprint</robot_base_frame>
+        <odom_topic>ground_truth_odom</odom_topic>
+        <odom_covariance_topic>ground_truth_odom_cov</odom_covariance_topic>
+        <dimensions>3</dimensions>
+        <tf_topic>/pose_tf</tf_topic>
+      </plugin>
+    </gazebo>
+
+  <!-- OAK Link and model-->
+   <xacro:include filename="$(find depthai_descriptions)/urdf/include/depthai_macro.urdf.xacro"/>
+    <xacro:depthai_camera camera_name = "OAK-D-Pro" parent = "base_link" camera_model = "OAK-D-PRO" base_frame = "OAK-D-Pro_base" 
+                          cam_pos_x = "0.1" cam_pos_y = "0" cam_pos_z = "0.1" cam_roll = "0" 
+                          cam_pitch = "0" cam_yaw = "0"/>
+
+  <!-- Depth camera plugin -->
+  <gazebo reference="OAK-D-Pro_base">
+      <sensor name="oakd-pro" type="depth_camera">
+        <camera name="oakd-pro-depth">
+          <horizontal_fov>1.3963</horizontal_fov>
+            <image>
+                <width>400</width>
+                <height>600</height>
+                <format>R8G8B8</format>
+            </image>
+          <clip>
+            <near>0.07</near>
+            <far>12.0</far>
+          </clip>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.007</stddev>
+          </noise>
+          <distortion>
+            <k1>-0.279817</k1>
+            <k2>0.060321</k2>
+            <k3>0.000487</k3>
+            <p1>0.000310</p1>
+            <p2>0.000000</p2>
+            <center>0.5 0.5</center>
+          </distortion>
+          <optical_frame_id>OAK-D-Pro_base</optical_frame_id>
+        </camera>
+        <always_on>1</always_on>
+        <update_rate>5</update_rate>
+        <visualize>true</visualize>
+        <topic>oak/image_raw</topic>
+        <topic>oak/image_raw/points</topic>
+      </sensor>
+  </gazebo>
+
+</robot>

@@ -1,0 +1,9 @@
+repositories:
+    kindr:
+        type: git
+        url: https://github.com/ANYbotics/kindr.git
+        version: master
+    kindr_ros:
+        type: git
+        url: https://github.com/element-robotics/kindr_ros.git
+        version: ros2

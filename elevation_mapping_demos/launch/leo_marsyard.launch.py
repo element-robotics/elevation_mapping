@@ -8,26 +8,97 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, TextSubstitution, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, TextSubstitution, PathJoinSubstitution, Command
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from launch_ros.descriptions import ComposableNode
 from launch_ros.actions import ComposableNodeContainer
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
 
-    lunarsim_gz_bringup_dir = FindPackageShare('lunarsim_gz_bringup')
+    leo_gz_worlds = FindPackageShare('leo_gz_worlds')
+    elevation_mapping_demos = FindPackageShare('elevation_mapping_demos')
+    ros_gz_sim = FindPackageShare('ros_gz_sim')
+    ros_gz_bridge = FindPackageShare('ros_gz_bridge')
 
-    marsyard_launch = IncludeLaunchDescription(
+    robot_desc = ParameterValue(
+        Command(
+            [
+                'xacro ',
+                PathJoinSubstitution([elevation_mapping_demos, 'urdf', 'leo_rover_depthcam.urdf.xacro'])
+            ]
+        )
+    )
+
+    robot_state_publisher = Node(
+        package="robot_state_publisher",
+        executable="robot_state_publisher",
+        name="robot_state_publisher",
+        output="both",
+        parameters=[
+            {"use_sim_time": True},
+            {"robot_description": robot_desc},
+        ],
+    )
+    # Spawn a robot inside a simulation
+    leo_rover = Node(
+        package="ros_gz_sim",
+        executable="create",
+        name="ros_gz_sim_create",
+        output="both",
+        arguments=[
+            "-topic",
+            "robot_description",
+            "-name",
+            "leo_rover",
+            "-z",
+            "1.4",
+            "-x",
+            "-17.4",
+            "-y",
+            "7.4"
+        ],
+    )
+
+    gz_sim = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            PathJoinSubstitution([lunarsim_gz_bringup_dir, 'launch', 'lunarsim_world.launch.py'])
+            PathJoinSubstitution([ros_gz_sim, 'launch', 'gz_sim.launch.py'])
         ),
         launch_arguments={
-            'world' : 'marsyard2022.sdf',
-            'z_pose' : '5.0'
+            'gz_args': os.path.join(get_package_share_directory('leo_gz_worlds'), 'worlds', 'marsyard2022.sdf') + ' -r',
         }.items()
     )
+
+    topics_bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        name="topics_bridge",
+        parameters=[
+            {
+                "config_file": PathJoinSubstitution([elevation_mapping_demos, "config", "gz_bridge", "leo_ros_gz_bridge.yaml"]),
+                "qos_overrides./tf_static.publisher.durability": "transient_local",
+            }
+        ],
+        output="screen",
+    )
+
+    clock_bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        name="clock_bridge",
+        arguments=[
+            "/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock",
+        ],
+        parameters=[
+            {
+                "qos_overrides./tf_static.publisher.durability": "transient_local",
+            }
+        ],
+        output="screen",
+    )
+
 
     # voexel_filter_container = ComposableNodeContainer(
     #     name='pcl_node_container',
@@ -57,6 +128,9 @@ def generate_launch_description():
 
 
     return LaunchDescription([
-        marsyard_launch,
-        pose_with_cov_relay,
+        gz_sim,
+        topics_bridge,
+        clock_bridge,
+        robot_state_publisher,
+        leo_rover
     ])
