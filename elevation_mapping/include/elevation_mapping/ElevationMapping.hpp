@@ -15,6 +15,7 @@
 
 // ROS
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 #include <message_filters/cache.h>
 #include <message_filters/subscriber.h>
 #include "rclcpp/rclcpp.hpp"
@@ -281,6 +282,7 @@ class ElevationMapping:  public rclcpp::Node {
   //! ROS subscribers.
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointCloudSubscriber_;  //!< Deprecated, use input_source instead.
   message_filters::Subscriber<geometry_msgs::msg::PoseWithCovarianceStamped> robotPoseSubscriber_;
+  message_filters::Subscriber<nav_msgs::msg::Odometry> robotOdometrySubscriber_;
 
   //! ROS service servers.
   rclcpp::Service<std_srvs::srv::Empty>::SharedPtr fusionTriggerService_;
@@ -296,6 +298,8 @@ class ElevationMapping:  public rclcpp::Node {
 
   //! Cache for the robot pose messages.
   message_filters::Cache<geometry_msgs::msg::PoseWithCovarianceStamped> robotPoseCache_;
+  //! Cache for robot odometry messages.
+  message_filters::Cache<nav_msgs::msg::Odometry> robotOdometryCache_;
 
   //! TF listener and buffer.
   tf2_ros::Buffer::SharedPtr transformBuffer_;
@@ -303,6 +307,7 @@ class ElevationMapping:  public rclcpp::Node {
 
   struct Parameters {
     //! Size of the cache for the robot pose messages.
+    //TODO rename to motionCacheSize
     int robotPoseCacheSize_{200};
 
     //! Frame ID of the elevation map
@@ -315,9 +320,13 @@ class ElevationMapping:  public rclcpp::Node {
     //! ROS topics for subscriptions.
     std::string pointCloudTopic_;  //!< Deprecated, use input_source instead.
     std::string robotPoseTopic_;
+    std::string robotOdometryTopic_;
 
     //! If true, robot motion updates are ignored.
     bool ignoreRobotMotionUpdates_{false};
+
+    //! If true, uses odom topic instead of pose topic
+    bool useOdomTopic_{false};
 
     //! If false, elevation mapping stops updating
     bool updatesEnabled_{true};

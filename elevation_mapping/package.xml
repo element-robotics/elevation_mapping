@@ -20,6 +20,8 @@
   <depend>grid_map_filters</depend>
   <depend>grid_map_msgs</depend>
   <depend>grid_map_ros</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>kindr</depend>
   <depend>kindr_ros</depend>
   <depend>message_filters</depend>

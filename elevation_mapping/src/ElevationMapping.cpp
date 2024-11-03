@@ -95,25 +95,32 @@ void ElevationMapping::setupSubscribers() {  // Handle deprecated point_cloud_to
         // RCLCPP_INFO(this->get_logger(), "Got Message from Pointcloud with frame: %s at time: %d", msg->header.frame_id.c_str(), msg->header.stamp.sec);
       });
 
-  if (!parameters.robotPoseTopic_.empty()) {
-    rmw_qos_profile_t qos = rmw_qos_profile_sensor_data;
-    qos.depth = 1;
+  if(parameters.ignoreRobotMotionUpdates_){
+    return;
+  }
+
+
+  rmw_qos_profile_t qos = rmw_qos_profile_sensor_data;
+  qos.depth = 1;
+  if (parameters.useOdomTopic_){
+    robotOdometrySubscriber_.subscribe(this->shared_from_this(), parameters.robotOdometryTopic_, qos);
+    robotOdometryCache_.connectInput(robotOdometrySubscriber_);
+    robotOdometryCache_.setCacheSize(parameters.robotPoseCacheSize_);
+  } else {
     robotPoseSubscriber_.subscribe(this->shared_from_this(), parameters.robotPoseTopic_, qos);
     robotPoseCache_.connectInput(robotPoseSubscriber_);
     robotPoseCache_.setCacheSize(parameters.robotPoseCacheSize_);
-    // RCLCPP_INFO(this->get_logger(), "Subscribed to robot pose topic '%s'.", parameters.robotPoseTopic_.c_str());
-    // robotPoseCache_.registerCallback([this](const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr& msg) {
-    //   RCLCPP_INFO(this->get_logger(), "robotPoseCacheCallback. RobotPose Timestamp: %d", msg->header.stamp.sec);
-    // });
-    // robotPoseCache_.registerCallback([this](const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr& msg) {
-    //   rclcpp::Time messageTime = msg->header.stamp;
-    //   rclcpp::Time currentTime = this->now();
-    //   rclcpp::Duration timeSinceMessage = currentTime - messageTime;
-    //   RCLCPP_INFO(this->get_logger(), "Time since message timestamp: %f seconds", timeSinceMessage.seconds());
-    // });
-  } else {
-    parameters.ignoreRobotMotionUpdates_ = true;
   }
+  // RCLCPP_INFO(this->get_logger(), "Subscribed to robot pose topic '%s'.", parameters.robotPoseTopic_.c_str());
+  // robotPoseCache_.registerCallback([this](const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr& msg) {
+  //   RCLCPP_INFO(this->get_logger(), "robotPoseCacheCallback. RobotPose Timestamp: %d", msg->header.stamp.sec);
+  // });
+  // robotPoseCache_.registerCallback([this](const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr& msg) {
+  //   rclcpp::Time messageTime = msg->header.stamp;
+  //   rclcpp::Time currentTime = this->now();
+  //   rclcpp::Duration timeSinceMessage = currentTime - messageTime;
+  //   RCLCPP_INFO(this->get_logger(), "Time since message timestamp: %f seconds", timeSinceMessage.seconds());
+  // });
 }
 
 void ElevationMapping::setupServices() {
@@ -122,19 +129,19 @@ void ElevationMapping::setupServices() {
   fusionTriggerService_ = this->create_service<std_srvs::srv::Empty>(
       "trigger_fusion", 
       std::bind(&ElevationMapping::fuseEntireMapServiceCallback, this, std::placeholders::_1, std::placeholders::_2),
-      rmw_qos_profile_services_default,
+      rclcpp::ServicesQoS(),
       fusionServiceCallbackGroup_);
 
   fusedSubmapService_ = this->create_service<grid_map_msgs::srv::GetGridMap>(
       "get_submap", 
       std::bind(&ElevationMapping::getFusedSubmapServiceCallback, this, std::placeholders::_1, std::placeholders::_2),
-      rmw_qos_profile_services_default,
+      rclcpp::ServicesQoS(),
       fusionServiceCallbackGroup_);
 
   rawSubmapService_ = this->create_service<grid_map_msgs::srv::GetGridMap>(
       "get_raw_submap", 
       std::bind(&ElevationMapping::getRawSubmapServiceCallback, this, std::placeholders::_1, std::placeholders::_2),
-      rmw_qos_profile_services_default,
+      rclcpp::ServicesQoS(),
       fusionServiceCallbackGroup_);
 
   clearMapService_ = this->create_service<std_srvs::srv::Empty>(
@@ -187,6 +194,8 @@ bool ElevationMapping::readParameters(bool reload) {
 
   parameters.pointCloudTopic_ = this->declare_parameter<std::string>("point_cloud_topic", "/points");
   parameters.robotPoseTopic_ = this->declare_parameter<std::string>("robot_pose_with_covariance_topic", "/pose");
+  parameters.robotOdometryTopic_ = this->declare_parameter<std::string>("robot_odometry_topic", "/odom");
+  parameters.useOdomTopic_ = this->declare_parameter<bool>("use_odom_topic", "false");
   parameters.trackPointFrameId_ = this->declare_parameter<std::string>("track_point_frame_id", "/robot");
   parameters.trackPoint_.x() = this->declare_parameter<double>("track_point_x", 0.0);
   parameters.trackPoint_.y() = this->declare_parameter<double>("track_point_y", 0.0);
@@ -314,15 +323,15 @@ bool ElevationMapping::initialize() {
 }
 
 void ElevationMapping::pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr pointCloudMsg, bool publishPointCloud) {
-  RCLCPP_INFO(this->get_logger(), "Processing data from: %s", pointCloudMsg->header.frame_id.c_str());
-  RCLCPP_INFO(this->get_logger(), "Getting Parameters Lock...");
+  RCLCPP_DEBUG(this->get_logger(), "Processing data from: %s", pointCloudMsg->header.frame_id.c_str());
+  RCLCPP_DEBUG(this->get_logger(), "Getting Parameters Lock...");
   const Parameters parameters{parameters_.getData()};
-  RCLCPP_INFO(this->get_logger(), "Got Parameters Lock");
+  RCLCPP_DEBUG(this->get_logger(), "Got Parameters Lock");
   if (!parameters.updatesEnabled_) {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *(this->get_clock()), 10000, "Updating of elevation map is disabled. (Warning message is throttled, 10s.)");
     if (publishPointCloud) {
       map_->setTimestamp(this->now());
-      RCLCPP_INFO(this->get_logger(), "Raw Elevation map is published from pointcloud callback without updating.");
+      RCLCPP_DEBUG(this->get_logger(), "Raw Elevation map is published from pointcloud callback without updating.");
       map_->postprocessAndPublishRawElevationMap();
     }
     return;
@@ -330,7 +339,7 @@ void ElevationMapping::pointCloudCallback(const sensor_msgs::msg::PointCloud2::S
 
   // Check if point cloud has corresponding robot pose at the beginning
   if (!receivedFirstMatchingPointcloudAndPose_) {
-    const double oldestPoseTime = robotPoseCache_.getOldestTime().seconds();
+    const double oldestPoseTime = parameters.useOdomTopic_ ? robotOdometryCache_.getOldestTime().seconds() : robotPoseCache_.getOldestTime().seconds();
     const double currentPointCloudTime = pointCloudMsg->header.stamp.sec;
 
     if (currentPointCloudTime < oldestPoseTime) {
@@ -353,19 +362,36 @@ void ElevationMapping::pointCloudCallback(const sensor_msgs::msg::PointCloud2::S
   pcl::fromPCLPointCloud2(pcl_pc, *pointCloud);
   lastPointCloudUpdateTime_ = rclcpp::Time(1000 * pointCloud->header.stamp, RCL_ROS_TIME);
 
-  RCLCPP_INFO(this->get_logger(), "ElevationMap received a point cloud (%i points) for elevation mapping.", static_cast<int>(pointCloud->size()));
+  RCLCPP_DEBUG(this->get_logger(), "ElevationMap received a point cloud (%i points) for elevation mapping.", static_cast<int>(pointCloud->size()));
 
   // Get robot pose covariance matrix at timestamp of point cloud.
   Eigen::Matrix<double, 6, 6> robotPoseCovariance;
   robotPoseCovariance.setZero();
   if (!parameters.ignoreRobotMotionUpdates_) {
-    std::shared_ptr<geometry_msgs::msg::PoseWithCovarianceStamped const> poseMessage =
-        robotPoseCache_.getElemBeforeTime(lastPointCloudUpdateTime_);
+    bool noValidPose{false};
+    geometry_msgs::msg::PoseWithCovariance poseMessage;
+    
+    if(parameters.useOdomTopic_){
+      auto odom = robotOdometryCache_.getElemBeforeTime(lastPointCloudUpdateTime_);
+      if (!odom){
+        noValidPose = true;
+      } else {
+        poseMessage = odom->pose;
+      }
+    } else {
+      auto pose = robotOdometryCache_.getElemBeforeTime(lastPointCloudUpdateTime_);
+      if (!pose){
+        noValidPose = true;
+      } else {
+        poseMessage = pose->pose;
+      }
+    }
 
-    if (!poseMessage) {
+    if (noValidPose) {
       // Tell the user that either for the timestamp no pose is available or that the buffer is possibly empty
-      if (robotPoseCache_.getOldestTime().seconds() > lastPointCloudUpdateTime_.seconds()) {
-        RCLCPP_ERROR(this->get_logger(), "The oldest pose available is at %f, requested pose at %f", robotPoseCache_.getOldestTime().seconds(),
+      const double oldestPoseTime = parameters.useOdomTopic_ ? robotOdometryCache_.getOldestTime().seconds() : robotPoseCache_.getOldestTime().seconds();
+      if (oldestPoseTime > lastPointCloudUpdateTime_.seconds()) {
+        RCLCPP_ERROR(this->get_logger(), "The oldest pose available is at %f, requested pose at %f", oldestPoseTime,
                   lastPointCloudUpdateTime_.seconds());
       } else {
         RCLCPP_ERROR(this->get_logger(), "Could not get pose information from robot for time %f. Buffer empty?", lastPointCloudUpdateTime_.seconds());
@@ -373,7 +399,7 @@ void ElevationMapping::pointCloudCallback(const sensor_msgs::msg::PointCloud2::S
       // TODO: Potential Deadlock here.
       return;
     }
-    robotPoseCovariance = Eigen::Map<const Eigen::MatrixXd>(poseMessage->pose.covariance.data(), 6, 6);
+    robotPoseCovariance = Eigen::Map<const Eigen::MatrixXd>(poseMessage.covariance.data(), 6, 6);
   }
 
   // Process point cloud.
@@ -420,15 +446,15 @@ void ElevationMapping::pointCloudCallback(const sensor_msgs::msg::PointCloud2::S
 
   if (publishPointCloud) {
     // Publish elevation map.
-    RCLCPP_INFO(this->get_logger(), "Postprocessing and publishing raw elevation map...");
+    RCLCPP_DEBUG(this->get_logger(), "Postprocessing and publishing raw elevation map...");
     map_->postprocessAndPublishRawElevationMap();
-    RCLCPP_INFO(this->get_logger(), "Processed and Published Raw Elevation Map");
+    RCLCPP_DEBUG(this->get_logger(), "Processed and Published Raw Elevation Map");
     if (isFusingEnabled()) {
-      RCLCPP_INFO(this->get_logger(), "Fusing entire map...");
+      RCLCPP_DEBUG(this->get_logger(), "Fusing entire map...");
       map_->fuseAll();
-      RCLCPP_INFO(this->get_logger(), "Map fusion complete. Publishing fused elevation map...");
+      RCLCPP_DEBUG(this->get_logger(), "Map fusion complete. Publishing fused elevation map...");
       map_->publishFusedElevationMap();
-      RCLCPP_INFO(this->get_logger(), "Fused elevation map published.");
+      RCLCPP_DEBUG(this->get_logger(), "Fused elevation map published.");
     }
   }
 
@@ -436,10 +462,6 @@ void ElevationMapping::pointCloudCallback(const sensor_msgs::msg::PointCloud2::S
 }
 
 void ElevationMapping::mapUpdateTimerCallback() {
-  RCLCPP_INFO(this->get_logger(), "Timer Callback");
-  RCLCPP_INFO(this->get_logger(), "Robot Pose Cache Oldest time %d, Newest time %d", robotPoseCache_.getOldestTime().seconds(), robotPoseCache_.getLatestTime().seconds());
-  auto latestPose = robotPoseCache_.getElemBeforeTime(this->now());
-  RCLCPP_INFO(this->get_logger(), "Latest Pose {x: %f, y: %f, z: %f}", latestPose->pose.pose.position.x, latestPose->pose.pose.position.y, latestPose->pose.pose.position.z);
   const Parameters parameters{parameters_.getData()};
   if (!parameters.updatesEnabled_) {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *(this->get_clock()), 10000, "Updating of elevation map is disabled. (Warning message is throttled, 10s.)");
@@ -514,7 +536,7 @@ bool ElevationMapping::updatePrediction(const rclcpp::Time& time) {
     return true;
   }
 
-  RCLCPP_DEBUG(this->get_logger(), "Updating map with latest prediction from time %f.", robotPoseCache_.getLatestTime().seconds());
+  RCLCPP_DEBUG(this->get_logger(), "Updating map with latest prediction from time %f.", parameters.useOdomTopic_ ? robotOdometryCache_.getLatestTime().seconds() : robotPoseCache_.getLatestTime().seconds());
 
   if (time + parameters.timeTolerance_ < map_->getTimeOfLastUpdate()) {
     RCLCPP_ERROR(this->get_logger(), "Requested update with time stamp %f, but time of last update was %f.", time.seconds(), map_->getTimeOfLastUpdate().seconds());
@@ -526,11 +548,31 @@ bool ElevationMapping::updatePrediction(const rclcpp::Time& time) {
   }
 
   // Get robot pose at requested time.
-  std::shared_ptr<geometry_msgs::msg::PoseWithCovarianceStamped const> poseMessage = robotPoseCache_.getElemBeforeTime(time);
-  if (!poseMessage) {
+
+  bool noValidPose{false};
+  geometry_msgs::msg::PoseWithCovariance poseMessage;
+  
+  if(parameters.useOdomTopic_){
+    auto odom = robotOdometryCache_.getElemBeforeTime(time);
+    if (!odom){
+      noValidPose = true;
+    } else {
+      poseMessage = odom->pose;
+    }
+  } else {
+    auto pose = robotOdometryCache_.getElemBeforeTime(time);
+    if (!pose){
+      noValidPose = true;
+    } else {
+      poseMessage = pose->pose;
+    }
+  }
+  
+  if (noValidPose) {
     // Tell the user that either for the timestamp no pose is available or that the buffer is possibly empty
-    if (robotPoseCache_.getOldestTime().seconds() > lastPointCloudUpdateTime_.seconds()) {
-      RCLCPP_ERROR(this->get_logger(), "The oldest pose available is at %f, requested pose at %f", robotPoseCache_.getOldestTime().seconds(),
+    const double oldestPoseTime = parameters.useOdomTopic_ ? robotOdometryCache_.getOldestTime().seconds() : robotPoseCache_.getOldestTime().seconds();
+    if (oldestPoseTime > lastPointCloudUpdateTime_.seconds()) {
+      RCLCPP_ERROR(this->get_logger(), "The oldest pose available is at %f, requested pose at %f", oldestPoseTime,
                 lastPointCloudUpdateTime_.seconds());
     } else {
       RCLCPP_ERROR(this->get_logger(), "Could not get pose information from robot for time %f. Buffer empty?", lastPointCloudUpdateTime_.seconds());
@@ -539,10 +581,10 @@ bool ElevationMapping::updatePrediction(const rclcpp::Time& time) {
   }
 
   kindr::HomTransformQuatD robotPose;
-  kindr_ros::convertFromRosGeometryMsg(poseMessage->pose.pose, robotPose);
+  kindr_ros::convertFromRosGeometryMsg(poseMessage.pose, robotPose);
   // Covariance is stored in row-major in ROS: http://docs.ros.org/api/geometry_msgs/html/msg/PoseWithCovariance.html
   Eigen::Matrix<double, 6, 6> robotPoseCovariance =
-      Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>>(poseMessage->pose.covariance.data(), 6, 6);
+      Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>>(poseMessage.covariance.data(), 6, 6);
 
   // Compute map variance update from motion prediction.
   robotMotionMapUpdater_->update(map_, robotPose, robotPoseCovariance, time);
