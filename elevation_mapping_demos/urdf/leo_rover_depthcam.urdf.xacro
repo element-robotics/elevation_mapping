@@ -44,7 +44,7 @@
             <near>0.07</near>
             <far>12.0</far>
           </clip>
-          <noise>
+          <!-- <noise>
             <type>gaussian</type>
             <mean>0.0</mean>
             <stddev>0.007</stddev>
@@ -56,7 +56,7 @@
             <p1>0.000310</p1>
             <p2>0.000000</p2>
             <center>0.5 0.5</center>
-          </distortion>
+          </distortion> -->
           <optical_frame_id>OAK-D-Pro_base</optical_frame_id>
         </camera>
         <always_on>1</always_on>

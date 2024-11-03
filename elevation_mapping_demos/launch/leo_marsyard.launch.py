@@ -100,31 +100,42 @@ def generate_launch_description():
     )
 
 
-    # voexel_filter_container = ComposableNodeContainer(
-    #     name='pcl_node_container',
-    #     namespace='',
-    #     package='rclcpp_components',
-    #     executable='component_container_mt',
-    #     composable_node_descriptions = [
-    #         ComposableNode(
-    #             package='pcl_ros',
-    #             plugin='pcl_ros::VodelGrid',
-    #             name='voxel_grid_filter',
-    #             parameters=[{
-    #                 'leaf_size': 0.05,
-    #                 'filter_field_name': 'z',
-    #                 'filter_limit_min': 0.1,
-    #                 'filter_limit_max': 7.0,
-    #                 'filter_limit_negative': False
+    voxel_grid_node = Node(
+        package='pcl_ros',
+        executable='filter_voxel_grid_node',
+        name="pointcloud_filter",
+        remappings=[
+            ('/input', '/oak/points'),
+            ('/output', '/oak/points/filtered')
+        ],
+        parameters = [{
+            'use_sim_time': True,
+            'filter_limit_max': 10.0,
+            'filter_limit_min': 0.0,
+            'min_points_per_voxel': 2,
+            'filter_field_name': 'x',
+            'leaf_size': 0.025
 
-    #             }],
-    #             remappings=[
-    #                 ('input', '/oak/points'),
-    #                 ('output', '/oak/points_filtered')
-    #             ]
-    #         )
-    #     ]
-    # )
+        }]
+    )
+
+    elevation_mapping_node = Node(
+        package='elevation_mapping',
+        executable='elevation_mapping_node',
+        name='elevation_mapping',
+        parameters = [
+            PathJoinSubstitution([elevation_mapping_demos, "config", "robots", "leo.yaml"]),
+            PathJoinSubstitution([elevation_mapping_demos, "config", "postprocessing", "postprocessor_pipeline.yaml"]),
+            {'use_sim_time': True}
+        ]
+    )
+
+    rviz_node = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        arguments=['-d', PathJoinSubstitution([elevation_mapping_demos, 'rviz', 'leo_marsyard.rviz'])]
+    )
 
 
     return LaunchDescription([
@@ -132,5 +143,8 @@ def generate_launch_description():
         topics_bridge,
         clock_bridge,
         robot_state_publisher,
-        leo_rover
+        leo_rover,
+        voxel_grid_node,
+        elevation_mapping_node,
+        rviz_node,
     ])

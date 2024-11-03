@@ -2,7 +2,8 @@ elevation_mapping:
   ros__parameters:
     map_frame_id:                               odom
     robot_base_frame_id:                        base_link
-    robot_pose_with_covariance_topic:           /ground_truth_pose
+    use_odom_topic:                             true
+    robot_odometry_topic:                       /ground_truth_odom
     robot_pose_cache_size:                      200
     # input_sources:
     #   front: # A name to identify the input source
@@ -12,7 +13,7 @@ elevation_mapping:
     #     publish_on_update: true # Wheter to publish the elevation map after a callback from this source.
     #     sensor_processor:
     #       type: perfect
-    point_cloud_topic:                          /oak/points
+    point_cloud_topic:                          /oak/points/filtered
     track_point_frame_id:                       base_link
     track_point_x:                              0.0
     track_point_y:                              0.0

@@ -23,6 +23,7 @@
 
   <depend>leo_simulator</depend>
   <depend>depthai_descriptions</depend>
+  <depend>teleop_twist_keyboard</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
