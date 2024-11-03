@@ -31,3 +31,8 @@ RUN vcs import src < src/elevation_mapping/elevation_mapping.repos && \
     # rm -rf /var/lib/apt/lists/* && \
     # Build the workspace
     colcon build
+
+RUN echo '. /opt/ros/${ROS_DISTRO}/setup.bash' >> /root/.bashrc && \
+    echo '. /root/ws_elevation_mapping/install/setup.bash' >> /root/.bashrc && \
+    echo 'export GZ_SIM_SYSTEM_PLUGIN_PATH=/opt/ros/jazzy/lib' >> /root/.bashrc && \
+    echo 'export GZ_SIM_RESOURCE_PATH=/opt/ros/jazzy/share:/opt/ros/jazzy/share/leo_gz_worlds/worlds:/opt/ros/jazzy/share/leo_gz_worlds/models' >> /root/.bashrc
