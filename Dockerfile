@@ -20,7 +20,16 @@ RUN \
     # Preferred build tools
     clang clang-format-14 clang-tidy clang-tools
 
+RUN if [ "${ROS_DISTRO}" = "humble" ]; then \
+    wget https://packages.osrfoundation.org/gazebo.gpg -O /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null ; \
+    apt-get update && apt-get install -y gz-garden ros-humble-ros-gzgarden; \
+    else \
+    apt-get update && apt-get install -y ros-${ROS_DISTRO}-ros-gz; \
+    fi
+
 RUN vcs import src < src/elevation_mapping/elevation_mapping.repos && \
+    vcs import src < src/elevation_mapping_demos/elevation_mapping_demos.repos && \
     # Source ROS install
     . "/opt/ros/${ROS_DISTRO}/setup.sh" &&\
     # Install dependencies from rosdep
@@ -34,5 +43,5 @@ RUN vcs import src < src/elevation_mapping/elevation_mapping.repos && \
 
 RUN echo '. /opt/ros/${ROS_DISTRO}/setup.bash' >> /root/.bashrc && \
     echo '. /root/ws_elevation_mapping/install/setup.bash' >> /root/.bashrc && \
-    echo 'export GZ_SIM_SYSTEM_PLUGIN_PATH=/opt/ros/jazzy/lib' >> /root/.bashrc && \
-    echo 'export GZ_SIM_RESOURCE_PATH=/opt/ros/jazzy/share:/opt/ros/jazzy/share/leo_gz_worlds/worlds:/opt/ros/jazzy/share/leo_gz_worlds/models' >> /root/.bashrc
+    echo 'export GZ_SIM_SYSTEM_PLUGIN_PATH=/opt/ros/${ROS_DISTRO}/lib:/root/ws_elevation_mapping/install/leo_gz_plugins/lib' >> /root/.bashrc && \
+    echo 'export GZ_SIM_RESOURCE_PATH=/opt/ros/${ROS_DISTRO}/share:$(ros2 pkg prefix leo_gz_worlds)/share/leo_gz_worlds/worlds:$(ros2 pkg prefix leo_gz_worlds)/share/leo_gz_worlds/models' >> /root/.bashrc;

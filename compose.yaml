@@ -6,7 +6,7 @@
 
 services:
   cpu:
-    image: elevation_mapping:latest
+    image: ${DOCKER_IMAGE:-elevation_mapping:latest}
     container_name: elevation_mapping_container
     privileged: true
     network_mode: host
@@ -18,7 +18,7 @@ services:
       QT_X11_NO_MITSHM: 1
       DISPLAY: $DISPLAY
   gpu:
-    image: elevation_mapping:latest
+    image: ${DOCKER_IMAGE:-elevation_mapping:latest}
     container_name: elevation_mapping_container
     privileged: true
     network_mode: host

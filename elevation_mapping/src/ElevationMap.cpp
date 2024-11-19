@@ -38,7 +38,7 @@ ElevationMap::ElevationMap(rclcpp::Node::SharedPtr node)
       rawMap_({"elevation", "variance", "horizontal_variance_x", "horizontal_variance_y", "horizontal_variance_xy", "color", "time",
                "dynamic_time", "lowest_scan_point", "sensor_x_at_lowest_scan", "sensor_y_at_lowest_scan", "sensor_z_at_lowest_scan"}),
       fusedMap_({"elevation", "upper_bound", "lower_bound", "color"}),
-      postprocessorPool_(node->declare_parameter<int>("postprocessor_num_threads", 1), node_),
+      processingFunctor_(node_),
       hasUnderlyingMap_(false) {
   rawMap_.setBasicLayers({"elevation", "variance"});
   fusedMap_.setBasicLayers({"elevation", "upper_bound", "lower_bound"});
@@ -552,7 +552,11 @@ bool ElevationMap::postprocessAndPublishRawElevationMap() {
   boost::recursive_mutex::scoped_lock scopedLock(rawMapMutex_);
   grid_map::GridMap rawMapCopy = rawMap_;
   scopedLock.unlock();
-  return postprocessorPool_.runTask(rawMapCopy);
+
+  grid_map::GridMap output_map = processingFunctor_(rawMapCopy);
+  processingFunctor_.publish(output_map);
+  
+  return true;
 }
 
 bool ElevationMap::publishFusedElevationMap() {
@@ -673,7 +677,7 @@ const std::string& ElevationMap::getFrameId() {
 }
 
 bool ElevationMap::hasRawMapSubscribers() const {
-  return postprocessorPool_.pipelineHasSubscribers();
+  return processingFunctor_.hasSubscribers();
 }
 
 bool ElevationMap::hasFusedMapSubscribers() const {

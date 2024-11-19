@@ -54,11 +54,11 @@ def generate_launch_description():
             "-name",
             "leo_rover",
             "-z",
-            "1.4",
-            "-x",
-            "-17.4",
-            "-y",
-            "7.4"
+            "2.0",
+            # "-x",
+            # "-17.4",
+            # "-y",
+            # "7.4"
         ],
     )
 
@@ -67,7 +67,7 @@ def generate_launch_description():
             PathJoinSubstitution([ros_gz_sim, 'launch', 'gz_sim.launch.py'])
         ),
         launch_arguments={
-            'gz_args': os.path.join(get_package_share_directory('leo_gz_worlds'), 'worlds', 'marsyard2022.sdf') + ' -r',
+            'gz_args': os.path.join(get_package_share_directory('leo_gz_worlds'), 'worlds', 'marsyard2022.sdf'), # + ' -r',
         }.items()
     )
 
@@ -110,9 +110,9 @@ def generate_launch_description():
         ],
         parameters = [{
             'use_sim_time': True,
-            'filter_limit_max': 10.0,
+            'filter_limit_max': 15.0,
             'filter_limit_min': 0.0,
-            'min_points_per_voxel': 2,
+            'min_points_per_voxel': 1,
             'filter_field_name': 'x',
             'leaf_size': 0.025
 

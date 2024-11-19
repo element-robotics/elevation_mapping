@@ -13,12 +13,10 @@
   <depend>elevation_mapping</depend>
   <depend>grid_map_rviz_plugin</depend>
   <depend>rviz2</depend>
-  <depend>ros_gz</depend>
   <depend>grid_map_visualization</depend>
   <depend>pcl_ros</depend>
   <depend>robot_state_publisher</depend>
   <depend>tf2_ros</depend>
-  <depend>nav2_minimal_tb4_sim</depend>
   <depend>xacro</depend>
 
   <depend>leo_simulator</depend>

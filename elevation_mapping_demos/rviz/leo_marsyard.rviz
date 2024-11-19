@@ -7,7 +7,8 @@ Panels:
         - /Status1
         - /Grid1/Offset1
         - /RobotModel1/Description Topic1
-        - /GridMap1
+        - /PointCloud21
+        - /GridMap2
       Splitter Ratio: 0.5
     Tree Height: 1691
   - Class: rviz_common/Selection
@@ -180,7 +181,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: RGB8
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: 4096
@@ -197,10 +198,10 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /oak/points/filtered
+        Value: /oak/points
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Class: grid_map_rviz_plugin/GridMap
@@ -227,6 +228,32 @@ Visualization Manager:
         Value: /elevation_map_raw
       Use Rainbow: true
       Value: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Class: grid_map_rviz_plugin/GridMap
+      Color: 200; 200; 200
+      Color Layer: elevation_inpainted
+      Color Transformer: GridMapLayer
+      Enabled: false
+      Height Layer: elevation_inpainted
+      Height Transformer: ""
+      History Length: 1
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 10
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: GridMap
+      Show Grid Lines: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /elevation_map_raw
+      Use Rainbow: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -273,25 +300,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 28.91949462890625
+      Distance: 14.204558372497559
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -9.968990325927734
-        Y: 6.678976058959961
-        Z: -2.516944169998169
+        X: 8.086824417114258
+        Y: -2.0246005058288574
+        Z: 4.281126976013184
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5903981328010559
+      Pitch: 0.22979708015918732
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.135392665863037
+      Yaw: 1.5403800010681152
     Saved: ~
 Window Geometry:
   Displays:

@@ -10,43 +10,43 @@ elevation_mapping:
           output_layer: elevation_inpainted
           radius: 0.05
 
-      # Smooth the inpainted map.
-      filter2:
-        name: mean_in_radius
-        type: gridMapFilters/MeanInRadiusFilter
-        params:
-          input_layer: elevation_inpainted
-          output_layer: elevation_smooth
-          radius: 0.1
+      # # Smooth the inpainted map.
+      # filter2:
+      #   name: mean_in_radius
+      #   type: gridMapFilters/MeanInRadiusFilter
+      #   params:
+      #     input_layer: elevation_inpainted
+      #     output_layer: elevation_smooth
+      #     radius: 0.1
 
-      # Compute Surface normals
-      filter3:
-        name: surface_normals
-        type: gridMapFilters/NormalVectorsFilter
-        params:
-          input_layer: elevation_inpainted
-          output_layers_prefix: normal_vectors_
-          radius: 0.1
-          normal_vector_positive_axis: z
+      # # Compute Surface normals
+      # filter3:
+      #   name: surface_normals
+      #   type: gridMapFilters/NormalVectorsFilter
+      #   params:
+      #     input_layer: elevation_inpainted
+      #     output_layers_prefix: normal_vectors_
+      #     radius: 0.1
+      #     normal_vector_positive_axis: z
 
-      filter4:
-        name: slope
-        type: gridMapFilters/MathExpressionFilter
-        params:
-          output_layer: slope
-          expression: acos(normal_vectors_z)
+      # filter4:
+      #   name: slope
+      #   type: gridMapFilters/MathExpressionFilter
+      #   params:
+      #     output_layer: slope
+      #     expression: acos(normal_vectors_z)
 
-      # Compute roughness as absolute difference from map to smoothened map.
-      filter5:
-        name: roughness
-        type: gridMapFilters/MathExpressionFilter
-        params:
-          output_layer: roughness
-          expression: abs(elevation_inpainted - elevation_smooth)
+      # # Compute roughness as absolute difference from map to smoothened map.
+      # filter5:
+      #   name: roughness
+      #   type: gridMapFilters/MathExpressionFilter
+      #   params:
+      #     output_layer: roughness
+      #     expression: abs(elevation_inpainted - elevation_smooth)
       
-      filter6:
-        name: traversability
-        type: gridMapFilters/MathExpressionFilter
-        params:
-          output_layer: traversability
-          expression: 0.5 * (1.0 - (slope / 0.25)) + 0.5 * (1.0 - (roughness / 0.1))
+      # filter6:
+      #   name: traversability
+      #   type: gridMapFilters/MathExpressionFilter
+      #   params:
+      #     output_layer: traversability
+      #     expression: 0.5 * (1.0 - (slope / 0.25)) + 0.5 * (1.0 - (roughness / 0.1))
