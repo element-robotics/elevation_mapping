@@ -27,8 +27,7 @@
 // Elevation Mapping
 #include "elevation_mapping/PointXYZRGBConfidenceRatio.hpp"
 #include "elevation_mapping/ThreadSafeDataWrapper.hpp"
-// #include "elevation_mapping/postprocessing/PostprocessorPool.hpp"
-#include "elevation_mapping/postprocessing/PostprocessingPipelineFunctor.hpp"
+#include "elevation_mapping/postprocessing/PostprocessorPool.hpp"
 
 namespace elevation_mapping {
 
@@ -290,8 +289,7 @@ class ElevationMap {
   grid_map::GridMap underlyingMap_;
 
   //! Thread Pool to handle raw map postprocessing filter pipelines.
-  // PostprocessorPool postprocessorPool_;
-  PostprocessingPipelineFunctor processingFunctor_;
+  PostprocessorPool postprocessorPool_;
 
   //! True if underlying map has been set, false otherwise.
   bool hasUnderlyingMap_;
