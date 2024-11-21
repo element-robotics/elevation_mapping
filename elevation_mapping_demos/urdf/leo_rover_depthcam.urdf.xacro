@@ -36,8 +36,8 @@
         <camera name="oakd-pro-depth">
           <horizontal_fov>1.3963</horizontal_fov>
             <image>
-                <width>300</width>
-                <height>300</height>
+                <width>600</width>
+                <height>400</height>
                 <format>R8G8B8</format>
             </image>
           <clip>
