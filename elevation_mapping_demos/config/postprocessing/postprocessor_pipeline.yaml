@@ -22,7 +22,7 @@ elevation_mapping:
         params:
           input_layer: elevation_inpainted
           output_layer: elevation_smooth
-          radius: 0.1
+          radius: 0.25
 
       # Compute Surface normals
       filter4:
@@ -50,8 +50,52 @@ elevation_mapping:
           expression: abs(elevation_inpainted - elevation_smooth)
       
       filter7:
-        name: traversability
+        name: traversal_cost
         type: gridMapFilters/MathExpressionFilter
         params:
-          output_layer: traversability
-          expression: 0.5 * (1.0 - (slope / 0.25)) + 0.5 * (1.0 - (roughness / 0.1))
+          output_layer: traversal_cost
+          expression: abs(slope)/0.29146
+
+      filter8:
+        # Set lower threshold on traversal_cost.
+        name: lethal_traversal
+        type: gridMapFilters/DuplicationFilter
+        params:
+          input_layer: traversal_cost
+          output_layer: lethal_traversal
+      
+      filter9:
+        # Set lower threshold on traversal_cost.
+        name: lethal_traversal_threshold
+        type: gridMapFilters/ThresholdFilter
+        params:
+          layer: lethal_traversal
+          lower_threshold: 1.0
+          set_to: 0.0
+      
+      # Smooth the inpainted map.
+      filter10:
+        name: traversal_cost_mean
+        type: gridMapFilters/MeanInRadiusFilter
+        params:
+          input_layer: traversal_cost
+          output_layer: traversal_cost_smooth
+          radius: 0.5
+      
+      filter11:
+        name: traversal_cost_final
+        type: gridMapFilters/MathExpressionFilter
+        params:
+          output_layer: traversal_cost_final
+          expression: traversal_cost_smooth + lethal_traversal
+      
+      filter12:
+        # Set upper threshold on traversal_cost.
+        name: traversal_cost_upper_threshold
+        type: gridMapFilters/ThresholdFilter
+        params:
+          layer: traversal_cost_final
+          upper_threshold: 1.0
+          set_to: 1.0
+      
+      
