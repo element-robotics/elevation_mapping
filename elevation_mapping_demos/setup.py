@@ -30,9 +30,5 @@ setup(
     description='TODO: Package description',
     license='BSD',
     tests_require=['pytest'],
-    entry_points={
-        'console_scripts': [
-          'tf_to_pose_publisher = elevation_mapping_demos.tf_to_pose_publisher:main',  
-        ],
-    },
+    entry_points={},
 )
