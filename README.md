@@ -1,31 +1,30 @@
-# Robot-Centric Elevation Mapping
+# Robot-Centric Elevation Mapping for ROS 2
 
 ## Overview
 
-This is a [ROS] package developed for elevation mapping with a mobile robot. The software is designed for (local) navigation tasks with robots which are equipped with a pose estimation (e.g. IMU & odometry) and a distance sensor (e.g. structured light (Kinect, RealSense), laser range sensor, stereo camera). The provided elevation map is limited around the robot and reflects the pose uncertainty that is aggregated through the motion of the robot (robot-centric mapping). This method is developed to explicitly handle drift of the robot pose estimation.
+This repository is a fork of the original **Robot-Centric Elevation Mapping** project, which was designed for ROS 1. The project project is a work-in-progress port to ROS2 Jazzy.
 
-This is research code, expect that it changes often and any fitness for a particular purpose is disclaimed.
+The package enables robot-centric elevation mapping for mobile robots equipped with pose estimation sensors (e.g., IMU & odometry) and distance sensors (e.g., structured light sensors like Kinect or RealSense, laser range sensors, or stereo cameras). The elevation map is centered around the robot, accounts for pose uncertainty, and explicitly manages drift in the robot’s pose estimation.
 
-The source code is released under a [BSD 3-Clause license](LICENSE).
+The primary goal is to support local navigation tasks with a dynamic and accurate elevation map.
 
-**Author: Péter Fankhauser<br />
-Co-Author: Maximilian Wulf<br />
-Affiliation: [ANYbotics](https://www.anybotics.com/)<br />
-Maintainer: Maximilian Wulf, mwulf@anybotics.com, Magnus Gärtner, mgaertner@anybotics.com<br />**
+## Features
 
-This projected was initially developed at ETH Zurich (Autonomous Systems Lab & Robotic Systems Lab).
+- **Robot-centric mapping:** Elevation maps dynamically centered around the robot’s position.
+- **Uncertainty handling:** Aggregation of pose uncertainty during motion.
+- **Sensor integration:** Compatible with various distance sensors.
+- **ROS 2 compatibility:** Updated to support ROS 2 middleware for improved performance and flexibility.
 
-[This work is conducted as part of ANYmal Research, a community to advance legged robotics.](https://www.anymal-research.org/)
-
-<img alt="Elevation Map Example" src="elevation_mapping_demos/doc/elevation_map.jpg" width="700">
+## ROS2 Port TODO
 
 
-Videos of the elevation mapping software in use:
+## License
 
-<a alt="StarlETH Kinect elevation mapping" href="https://www.youtube.com/watch?v=I9eP8GrMyNQ"><img src="elevation_mapping_demos/doc/starleth_kinect.jpg" align="left" width="180" ></a>
-<a alt="ANYmal outdoor terrain mapping" href="https://www.youtube.com/watch?v=iVMsQPTM65M"><img src="elevation_mapping_demos/doc/anymal_forrest.jpg" align="left" width="180" ></a>
-<a alt="ANYmal rough-terrain locomotion planner" href="https://www.youtube.com/watch?v=CpzQu25iLa0"><img src="elevation_mapping_demos/doc/anymal_locomotion_planner.jpg" align="left" width="180" ></a>
-<a alt="ANYmal outdoor stair climbing" href="https://www.youtube.com/watch?v=vSveQrJLRTo"><img src="elevation_mapping_demos/doc/anymal_outdoor_stairs.jpg" width="180" ></a>
+This project is licensed under the [BSD 3-Clause License](LICENSE).
+
+## Acknowledgments
+
+This project is based on the original **Robot-Centric Elevation Mapping** developed by Péter Fankhauser and Maximilian Wulf at ETH Zurich (Autonomous Systems Lab & Robotic Systems Lab) as part of ANYmal Research. Special thanks to ANYbotics for their initial work.
 
 ## Citing
 
@@ -57,78 +56,33 @@ The robot-centric elevation mapping methods used in this software are described 
           year = {2014}
         }
 
+## Maintainers
+
+This fork is maintained by:
+
+- **[Taaj Street]** ([taaj.street@elementrobotics.space](mailto\:your-email@example.com))
+- Contributions and feedback are welcome! Please submit issues or pull requests on GitHub.
+
 ## Installation
 
-### Dependencies
+This repo contains a `Dockerfile` and  `compose.yaml` that can be used to install all dependencies and build the `elevation_mapping` and `elevation_mapping_demos`.
 
-This software is built on the Robotic Operating System ([ROS]), which needs to be [installed](http://wiki.ros.org) first. Additionally, the Robot-Centric Elevation Mapping depends on following software:
-
-- [Grid Map](https://github.com/anybotics/grid_map) (grid map library for mobile robots)
-- [kindr](http://github.com/anybotics/kindr) (kinematics and dynamics library for robotics),
-- [kindr_ros](https://github.com/anybotics/kindr_ros) (ROS wrapper for kindr),
-- [Point Cloud Library (PCL)](http://pointclouds.org/) (point cloud processing),
-- [Eigen](http://eigen.tuxfamily.org) (linear algebra library).
-
-
-### Building
-
-In order to install the Robot-Centric Elevation Mapping, clone the latest version from this repository into your catkin workspace and compile the package using ROS.
-
-    cd catkin_workspace/src
-    git clone https://github.com/anybotics/elevation_mapping.git
-    cd ../
-    catkin config --cmake-args -DCMAKE_BUILD_TYPE=Release
-    catkin build
-
-
-### Unit Tests
-
-Build tests with
-    
-    roscd elevation_mapping
-    catkin build --catkin-make-args run_tests -- --this
-   
-Run the tests with
-    
-     rostest elevation_mapping elevation_mapping.test -t
-    
+To run the container after building with `docker build --build-arg ROS_DISTRO=distro -t elevation_mapping:distro .` you can run `DOCKER_IMAGE=elevation_mapping:distro docker compose run device` where device is `gpu` if you have an nvidia gpu and `nvidia-container-toolkit` installed, or `cpu` otherwise.
 
 ## Basic Usage
 
 In order to get the Robot-Centric Elevation Mapping to run with your robot, you will need to adapt a few parameters. It is the easiest if duplicate and adapt all the parameter files that you need to change from the `elevation_mapping_demos` package (e.g. the `simple_demo` example). These are specifically the parameter files in `config` and the launch file from the `launch` folder.
 
-### TurtleBot3 Waffle Simulation
+### Leo Marsyard Simulation
 
-A running example is provided, making use of the Turtlebot3 simulation environment. This example can be used to test elevation mapping, as a starting point for further integration.
+A running example is provided with the LeoRover in the Leo-Simulator-ROS2 marsyard world.
 
-To start with, the Turtlebot3 simulation dependencies need to be installed:
+To run the demo run `ros2 launch elevation_mapping_demos leo_marsyard.launch.py
 
-    sudo apt install ros-melodic-turtlebot3*
-
-The elevation mapping demo together with the turtlebot3 simulation can be started with
-
-    roslaunch elevation_mapping_demos turtlesim3_waffle_demo.launch
-
-To control the robot with a keyboard, a new terminal window needs to be opened (remember to source your ROS environment). Then run
-
-    export TURTLEBOT3_MODEL=waffle
-    roslaunch turtlebot3_teleop turtlebot3_teleop_key.launch
-
-Velocity inputs can be sent to the robot by pressing the keys `a`, `w`,`d`, `x`. To stop the robot completely, press `s`.
-
-### Simple Demo & Ground Truth Demo
-
-A .ply is published as static pointcloud, elevation_mapping subscribes to it and publishes the elevation map. You can visualize it through rviz. 
-For visualization, select `/elevation_mapping/elevation_map_raw`. 
-
-**Note**. You might need to toggle the visibility of the grid_map_plugin to visualize it. 
-```bash
-roslaunch elevation_mapping_demos ground_truth_demo.launch
-```
-
-While ground truth demo estimates the height in map frame, simple demo sets up a more realistic deployment scenario. Here, the elevation_map is configured to track a base frame.
-To get started, we suggest to play around and also visualize other published topics, such as `/elevation_mapping/elevation_map_raw` and change the height layer to another layer, e.g `elevation_inpainted`.
 ## Nodes
+
+> [!NOTE]
+> The following documentation has not yet been update for ROS2
 
 ### Node: elevation_mapping
 
@@ -418,21 +372,4 @@ This is the main Robot-Centric Elevation Mapping node. It uses the distance sens
   - In between: A higher value puts more bias on the existing, prior estimate. A convex combination of both height and variance between
     estimate and measurement will be formed to initialize the new gaussian height distribution.
 
-## Changelog
 
-See [Changelog]
-
-## Bugs & Feature Requests
-
-Please report bugs and request features using the [Issue Tracker](https://github.com/anybotics/elevation_mapping/issues).
-
-[Changelog]: CHANGELOG.rst
-[ROS]: http://www.ros.org
-[rviz]: http://wiki.ros.org/rviz
-[grid_map_msgs/GridMap]: https://github.com/anybotics/grid_map/blob/master/grid_map_msgs/msg/GridMap.msg
-[sensor_msgs/PointCloud2]: http://docs.ros.org/api/sensor_msgs/html/msg/PointCloud2.html
-[geometry_msgs/PoseWithCovarianceStamped]: http://docs.ros.org/api/geometry_msgs/html/msg/PoseWithCovarianceStamped.html
-[tf2_msgs/TFMessage]: http://docs.ros.org/en/noetic/api/tf2_msgs/html/msg/TFMessage.html
-[std_srvs/Empty]: http://docs.ros.org/api/std_srvs/html/srv/Empty.html
-[grid_map_msgs/GetGridMap]: https://github.com/anybotics/grid_map/blob/master/grid_map_msgs/srv/GetGridMap.srv
-[grid_map_msgs/ProcessFile]: https://github.com/ANYbotics/grid_map/blob/master/grid_map_msgs/srv/ProcessFile.srv
