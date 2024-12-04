@@ -16,7 +16,12 @@ The primary goal is to support local navigation tasks with a dynamic and accurat
 - **ROS 2 compatibility:** Updated to support ROS 2 middleware for improved performance and flexibility.
 
 ## ROS2 Port TODO
-
+- [x] Core Functionality
+  - fuse and publish on subscriber
+  - direct pointcloud subscription (no input sources)
+- [ ] Fuse and Publish on Timer
+- [ ] Multi-threaded postprocessing
+- [ ] Replace Read Parameters with parameter server
 
 ## License
 
@@ -373,3 +378,5 @@ This is the main Robot-Centric Elevation Mapping node. It uses the distance sens
     estimate and measurement will be formed to initialize the new gaussian height distribution.
 
 
+
+ ecthelion  ecthelion-PC  ~  element_ws  src  elevation_mapping   ros2  1⚑  $  
